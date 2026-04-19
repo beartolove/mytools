@@ -25,7 +25,9 @@
   --r: 8px;
   --r-lg: 12px;
   --r-xl: 16px;
+  --app-font-size: 14px;
 }
+body { font-size: var(--app-font-size); }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
@@ -34,8 +36,60 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  font-size: 14px;
   line-height: 1.5;
+}
+
+/* ── Font Size Control ── */
+.font-ctrl {
+  display: flex; align-items: center; gap: 0;
+  border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; height: 28px;
+}
+.font-btn {
+  background: none; border: none; color: var(--text-muted);
+  padding: 0 9px; cursor: pointer; font-size: 14px; height: 100%;
+  transition: background 0.12s, color 0.12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.font-btn:hover { background: var(--surface2); color: var(--text); }
+.font-size-label {
+  font-size: 11px; color: var(--text-dim); padding: 0 6px;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  height: 100%; display: flex; align-items: center; min-width: 34px; justify-content: center;
+}
+
+/* ── Sort Bar ── */
+.sort-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.sort-bar > span {
+  font-size: 11px; color: var(--text-dim); white-space: nowrap;
+}
+.sort-select {
+  flex: 1; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); padding: 3px 22px 3px 7px; font-size: 11px;
+  outline: none; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23909090' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.sort-select:focus { border-color: var(--accent); }
+.sort-select option { background: #222; }
+.dir-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); cursor: pointer;
+  padding: 3px 8px; font-size: 12px; transition: all 0.12s;
+  white-space: nowrap; display: flex; align-items: center; gap: 2px;
+}
+.dir-btn:hover { background: var(--surface3); }
+.watch-later-badge {
+  display: inline-block; font-size: 10px;
+  background: rgba(255,200,0,0.15); color: #f0c040;
+  border: 1px solid rgba(255,200,0,0.3); border-radius: 3px;
+  padding: 0 4px; vertical-align: middle; margin-left: 4px;
 }
 
 /* ── Scrollbar ── */
@@ -389,6 +443,11 @@ main {
     <span>播放清單管理器</span>
   </div>
   <div class="header-spacer"></div>
+  <div class="font-ctrl" title="調整字體大小">
+    <button class="font-btn" onclick="adjustFont(-1)" title="縮小">A−</button>
+    <span class="font-size-label" id="font-label">14</span>
+    <button class="font-btn" onclick="adjustFont(1)" title="放大">A+</button>
+  </div>
   <div class="user-info" id="user-info" style="display:none">
     <img id="user-avatar" class="avatar" src="" alt="" onerror="this.style.display='none'">
     <span id="user-name"></span>
@@ -423,6 +482,16 @@ main {
       <select class="playlist-select" id="source-select" onchange="loadSourceVideos()">
         <option value="">— 選擇播放清單 —</option>
       </select>
+    </div>
+    <div class="sort-bar">
+      <span>排序</span>
+      <select class="sort-select" id="source-sort-by" onchange="repopulateSelects()">
+        <option value="watchlater">名稱</option>
+        <option value="title">名稱（忽略稍後）</option>
+        <option value="publishedAt">建立日期</option>
+        <option value="count">影片數量</option>
+      </select>
+      <button class="dir-btn" id="source-dir-btn" onclick="toggleSortDir('source')" title="切換升冪/降冪">↑ 升</button>
     </div>
     <div class="panel-toolbar" id="source-toolbar" style="display:none">
       <button class="select-all-btn" onclick="toggleSelectAll()">全選</button>
@@ -464,6 +533,16 @@ main {
         <option value="">— 選擇播放清單 —</option>
       </select>
     </div>
+    <div class="sort-bar">
+      <span>排序</span>
+      <select class="sort-select" id="dest-sort-by" onchange="repopulateSelects()">
+        <option value="watchlater">名稱</option>
+        <option value="title">名稱（忽略稍後）</option>
+        <option value="publishedAt">建立日期</option>
+        <option value="count">影片數量</option>
+      </select>
+      <button class="dir-btn" id="dest-dir-btn" onclick="toggleSortDir('dest')" title="切換升冪/降冪">↑ 升</button>
+    </div>
     <div id="dest-content">
       <div class="empty-state">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
@@ -482,11 +561,91 @@ const SCOPES = 'https://www.googleapis.com/auth/youtube';
 let CLIENT_ID = '';
 let accessToken = '';
 let allPlaylists = [];
-let sourceVideos = [];   // { id, videoId, title, channel, thumb, selected }
+let sourceVideos = [];
 let destVideos = [];
+
+// Sort state per panel
+const sortState = {
+  source: { by: 'watchlater', dir: 'asc' },
+  dest:   { by: 'watchlater', dir: 'asc' }
+};
+
+// ─── Font Size ───────────────────────────────────────
+const FONT_MIN = 11, FONT_MAX = 20;
+let currentFontSize = parseInt(localStorage.getItem('yt_font_size') || '14');
+
+function applyFont() {
+  document.documentElement.style.setProperty('--app-font-size', currentFontSize + 'px');
+  document.getElementById('font-label').textContent = currentFontSize;
+}
+function adjustFont(delta) {
+  currentFontSize = Math.min(FONT_MAX, Math.max(FONT_MIN, currentFontSize + delta));
+  localStorage.setItem('yt_font_size', currentFontSize);
+  applyFont();
+}
+
+// ─── Sort Helpers ────────────────────────────────────
+function sortedPlaylists(panel) {
+  const { by, dir } = sortState[panel];
+  const watchLater = allPlaylists.find(p => p.id === 'WL');
+  const rest = allPlaylists.filter(p => p.id !== 'WL');
+
+  rest.sort((a, b) => {
+    let va, vb;
+    if (by === 'title' || by === 'watchlater') {
+      va = a.title.toLowerCase(); vb = b.title.toLowerCase();
+      return dir === 'asc' ? va.localeCompare(vb, 'zh-Hant') : vb.localeCompare(va, 'zh-Hant');
+    }
+    if (by === 'publishedAt') {
+      va = a.publishedAt || ''; vb = b.publishedAt || '';
+      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    if (by === 'count') {
+      va = a.count; vb = b.count;
+      return dir === 'asc' ? va - vb : vb - va;
+    }
+    return 0;
+  });
+
+  // watchlater: always first regardless of sort
+  return watchLater ? [watchLater, ...rest] : rest;
+}
+
+function toggleSortDir(panel) {
+  sortState[panel].dir = sortState[panel].dir === 'asc' ? 'desc' : 'asc';
+  const btn = document.getElementById(panel + '-dir-btn');
+  btn.textContent = sortState[panel].dir === 'asc' ? '↑ 升' : '↓ 降';
+  repopulateSelects();
+}
+
+function repopulateSelects() {
+  // Sync sort-by state from selects
+  sortState.source.by = document.getElementById('source-sort-by').value;
+  sortState.dest.by   = document.getElementById('dest-sort-by').value;
+
+  const prevSrc  = document.getElementById('source-select').value;
+  const prevDest = document.getElementById('dest-select').value;
+
+  populateSelect('source-select', sortedPlaylists('source'));
+  populateSelect('dest-select',   sortedPlaylists('dest'));
+
+  // Restore selection
+  document.getElementById('source-select').value = prevSrc;
+  document.getElementById('dest-select').value   = prevDest;
+}
+
+function populateSelect(selectId, list) {
+  const placeholder = '<option value="">— 選擇播放清單 —</option>';
+  document.getElementById(selectId).innerHTML = placeholder +
+    list.map(p => {
+      const wl = p.id === 'WL' ? '<span class="watch-later-badge">稍後</span>' : '';
+      return `<option value="${p.id}"${p.id === 'WL' ? ' data-wl="1"' : ''}>${p.id === 'WL' ? '⭐ ' : ''}${escHtml(p.title)} (${p.count})</option>`;
+    }).join('');
+}
 
 // ─── Init ───────────────────────────────────────────
 window.onload = () => {
+  applyFont();
   CLIENT_ID = localStorage.getItem('yt_client_id') || '';
   if (CLIENT_ID) {
     document.getElementById('setup-overlay').style.display = 'none';
@@ -625,9 +784,10 @@ async function loadPlaylists() {
     allPlaylists = items.map(i => ({
       id: i.id,
       title: i.snippet.title,
-      count: i.contentDetails.itemCount
+      count: i.contentDetails.itemCount,
+      publishedAt: i.snippet.publishedAt || ''
     }));
-    populateSelects();
+    repopulateSelects();
     setSourceContent(emptyState('選擇來源播放清單'));
   } catch(e) {
     if (e.message && e.message.includes('invalid_token')) {
@@ -639,14 +799,7 @@ async function loadPlaylists() {
   }
 }
 
-function populateSelects() {
-  const opts = allPlaylists.map(p =>
-    `<option value="${p.id}">${escHtml(p.title)} (${p.count})</option>`
-  ).join('');
-  const placeholder = '<option value="">— 選擇播放清單 —</option>';
-  document.getElementById('source-select').innerHTML = placeholder + opts;
-  document.getElementById('dest-select').innerHTML = placeholder + opts;
-}
+// (populateSelects replaced by repopulateSelects above)
 
 // ─── Source Videos ───────────────────────────────────
 async function loadSourceVideos() {
@@ -818,7 +971,7 @@ async function doAction(type) {
   }
   await loadDestVideos();
   if (type !== 'move') clearSelection();
-  await loadPlaylists(); // refresh counts
+  await loadPlaylists();
 }
 
 // ─── UI Helpers ──────────────────────────────────────
