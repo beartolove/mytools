@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube 播放清單管理器</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #181818;
+  --surface2: #222;
+  --surface3: #2a2a2a;
+  --border: #3a3a3a;
+  --text: #f1f1f1;
+  --text-muted: #909090;
+  --text-dim: #606060;
+  --accent: #ff0000;
+  --accent-dark: #cc0000;
+  --accent-bg: rgba(255,0,0,0.08);
+  --accent-bg-hover: rgba(255,0,0,0.15);
+  --success: #00c853;
+  --success-bg: rgba(0,200,83,0.1);
+  --warning: #ffa000;
+  --r: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Overlay / Setup ── */
+#setup-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 1rem;
+}
+.setup-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 2rem 2.5rem;
+  max-width: 480px; width: 100%;
+}
+.setup-logo {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 1.5rem;
+}
+.setup-logo svg { flex-shrink: 0; }
+.setup-logo span { font-size: 20px; font-weight: 600; }
+.setup-box h2 { font-size: 17px; font-weight: 600; margin-bottom: 0.5rem; }
+.setup-box p { color: var(--text-muted); font-size: 13px; margin-bottom: 1.5rem; line-height: 1.7; }
+.setup-steps {
+  background: var(--surface2);
+  border-radius: var(--r);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 2;
+}
+.setup-steps a { color: var(--accent); text-decoration: none; }
+.setup-steps a:hover { text-decoration: underline; }
+.setup-steps code {
+  background: var(--surface3); padding: 1px 6px; border-radius: 4px;
+  font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; color: var(--text);
+}
+.input-group { margin-bottom: 1.25rem; }
+.input-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.03em; text-transform: uppercase; }
+.input-group input {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--text); padding: 10px 12px; font-size: 14px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  outline: none; transition: border-color 0.15s;
+}
+.input-group input:focus { border-color: var(--accent); }
+.input-group input::placeholder { color: var(--text-dim); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 20px; border-radius: var(--r); font-size: 14px; font-weight: 500;
+  cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; width: 100%; }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface3); }
+.btn-action {
+  flex: 1; padding: 12px 16px;
+  border-radius: var(--r); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; border: 1px solid var(--border);
+}
+.btn-copy { background: var(--accent-bg); color: #ff6666; border-color: rgba(255,0,0,0.3); }
+.btn-copy:hover:not(:disabled) { background: var(--accent-bg-hover); border-color: rgba(255,0,0,0.5); }
+.btn-move { background: var(--surface2); color: var(--text); }
+.btn-move:hover:not(:disabled) { background: var(--surface3); }
+.btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Header ── */
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 1.5rem; height: 56px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-logo { display: flex; align-items: center; gap: 8px; }
+.header-logo span { font-weight: 600; font-size: 16px; }
+.header-spacer { flex: 1; }
+.user-info {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-muted); font-size: 13px;
+}
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  object-fit: cover; border: 1.5px solid var(--border);
+}
+.avatar-placeholder {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--surface3); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+}
+.btn-signout {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted); padding: 5px 10px;
+  border-radius: 6px; font-size: 12px; cursor: pointer;
+}
+.btn-signout:hover { background: var(--surface2); color: var(--text); }
+
+/* ── Main Layout ── */
+main {
+  display: grid;
+  grid-template-columns: 1fr 160px 1fr;
+  grid-template-rows: 1fr;
+  gap: 0;
+  height: calc(100vh - 56px);
+}
+
+/* ── Panel ── */
+.panel {
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.panel:last-child { border-right: none; }
+.panel-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.panel-header label {
+  display: block; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;
+}
+.playlist-select {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--text); padding: 8px 10px; font-size: 13px;
+  outline: none; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23909090' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 30px;
+}
+.playlist-select:focus { border-color: var(--accent); }
+.playlist-select option { background: #222; }
+
+.panel-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.select-all-btn {
+  font-size: 12px; color: var(--text-muted); cursor: pointer;
+  background: none; border: 1px solid var(--border);
+  border-radius: 5px; padding: 3px 8px; transition: all 0.15s;
+}
+.select-all-btn:hover { color: var(--text); border-color: #555; }
+.count-badge {
+  font-size: 11px; color: var(--text-dim); margin-left: auto;
+}
+.selected-count {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: var(--accent-bg); color: #ff6666; font-weight: 500;
+  display: none;
+}
+.selected-count.visible { display: inline-block; }
+
+/* ── Video List ── */
+.video-list {
+  flex: 1; overflow-y: auto; padding: 8px;
+}
+.video-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px; border-radius: var(--r);
+  cursor: pointer; transition: background 0.1s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+.video-item:hover { background: var(--surface2); }
+.video-item.selected {
+  background: var(--accent-bg); border-color: rgba(255,0,0,0.2);
+}
+.video-checkbox {
+  width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;
+  border: 1.5px solid var(--border); border-radius: 4px;
+  background: var(--surface2); transition: all 0.1s;
+  display: flex; align-items: center; justify-content: center;
+}
+.video-item.selected .video-checkbox {
+  background: var(--accent); border-color: var(--accent);
+}
+.video-item.selected .video-checkbox::after {
+  content: ''; display: block;
+  width: 8px; height: 5px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translateY(-1px);
+}
+.video-thumb {
+  width: 88px; height: 50px; flex-shrink: 0;
+  border-radius: 4px; object-fit: cover;
+  background: var(--surface3);
+}
+.video-info { flex: 1; min-width: 0; }
+.video-title {
+  font-size: 13px; line-height: 1.4; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.video-channel {
+  font-size: 11px; color: var(--text-muted); margin-top: 3px;
+}
+.video-item.unavailable { opacity: 0.45; }
+
+/* ── Empty States ── */
+.empty-state {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--text-dim); gap: 10px; padding: 2rem;
+  text-align: center;
+}
+.empty-state svg { opacity: 0.3; }
+.empty-state p { font-size: 13px; }
+
+/* ── Middle Action Panel ── */
+.action-panel {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; padding: 1rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.action-divider { width: 1px; height: 40px; background: var(--border); }
+.action-btn-wrap { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Notification Toast ── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--surface3); color: var(--text);
+  padding: 10px 18px; border-radius: 20px; font-size: 13px;
+  border: 1px solid var(--border);
+  opacity: 0; transition: opacity 0.2s; pointer-events: none;
+  z-index: 9999; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+}
+#toast.show { opacity: 1; }
+#toast.success { border-color: var(--success); color: var(--success); }
+#toast.error { border-color: #ff4444; color: #ff6666; }
+
+/* ── Progress Bar ── */
+.progress-wrap { width: 100%; display: none; }
+.progress-wrap.visible { display: block; }
+.progress-bar-bg {
+  height: 4px; background: var(--surface3); border-radius: 2px;
+  margin-bottom: 4px;
+}
+.progress-bar-fill {
+  height: 100%; background: var(--accent); border-radius: 2px;
+  transition: width 0.3s; width: 0%;
+}
+.progress-label { font-size: 11px; color: var(--text-muted); text-align: center; }
+
+/* ── Loading ── */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-state {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Sign-in Screen ── */
+#signin-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(100vh - 56px);
+}
+.signin-box { text-align: center; }
+.signin-box h2 { font-size: 22px; font-weight: 600; margin-bottom: 0.5rem; }
+.signin-box p { color: var(--text-muted); margin-bottom: 2rem; font-size: 14px; }
+#g_id_signin { display: flex; justify-content: center; }
+
+/* ── Destination List (readonly preview) ── */
+.dest-video-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+  margin-bottom: 2px;
+}
+.dest-thumb {
+  width: 56px; height: 32px; flex-shrink: 0;
+  border-radius: 3px; object-fit: cover; background: var(--surface3);
+}
+.dest-title {
+  font-size: 12px; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 1fr 80px 1fr; }
+  .action-panel { flex-direction: row; height: 80px; padding: 0.5rem 1rem; }
+  .action-divider { width: 40px; height: 1px; }
+  .action-btn-wrap { flex-direction: row; }
+}
+</style>
+</head>
+<body>
+
+<!-- Setup Overlay -->
+<div id="setup-overlay">
+  <div class="setup-box">
+    <div class="setup-logo">
+      <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+        <rect width="32" height="22" rx="5" fill="#FF0000"/>
+        <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
+      </svg>
+      <span>播放清單管理器</span>
+    </div>
+    <h2>首次設定</h2>
+    <p>需要 Google OAuth Client ID 才能存取你的 YouTube 資料。<br>設定只需 5 分鐘，且完全免費。</p>
+    <div class="setup-steps">
+      <strong style="color:var(--text); display:block; margin-bottom:4px;">設定步驟：</strong>
+      1. 前往 <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a><br>
+      2. 建立新專案（或使用現有專案）<br>
+      3. 搜尋並啟用 <code>YouTube Data API v3</code><br>
+      4. 前往「憑證」→「建立憑證」→「OAuth 2用戶端ID」<br>
+      5. 類型選「<strong style="color:var(--text)">網頁應用程式</strong>」<br>
+      6. 「已授權的 JavaScript 來源」加入此網頁的網址<br>
+      7. 複製 Client ID 貼入下方
+    </div>
+    <div class="input-group">
+      <label>Google OAuth Client ID</label>
+      <input type="text" id="client-id-input" placeholder="xxxxxxxxx.apps.googleusercontent.com" />
+    </div>
+    <button class="btn btn-primary" onclick="saveClientId()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+      儲存並繼續
+    </button>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-logo">
+    <svg width="26" height="18" viewBox="0 0 32 22" fill="none">
+      <rect width="32" height="22" rx="4" fill="#FF0000"/>
+      <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
+    </svg>
+    <span>播放清單管理器</span>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="user-info" id="user-info" style="display:none">
+    <img id="user-avatar" class="avatar" src="" alt="" onerror="this.style.display='none'">
+    <span id="user-name"></span>
+    <button class="btn-signout" onclick="signOut()">登出</button>
+  </div>
+  <button class="btn-ghost btn" id="settings-btn" onclick="showSetup()" style="font-size:12px; padding:6px 10px; display:none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    設定
+  </button>
+</header>
+
+<!-- Sign-in Screen -->
+<div id="signin-screen" style="display:none">
+  <div class="signin-box">
+    <svg width="64" height="44" viewBox="0 0 32 22" fill="none" style="margin-bottom:1.5rem">
+      <rect width="32" height="22" rx="4" fill="#FF0000"/>
+      <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
+    </svg>
+    <h2>YouTube 播放清單管理器</h2>
+    <p>登入以管理你的播放清單</p>
+    <div id="g_id_signin"></div>
+  </div>
+</div>
+
+<!-- Main App -->
+<main id="app" style="display:none">
+
+  <!-- Source Panel -->
+  <div class="panel" id="source-panel">
+    <div class="panel-header">
+      <label>來源播放清單</label>
+      <select class="playlist-select" id="source-select" onchange="loadSourceVideos()">
+        <option value="">— 選擇播放清單 —</option>
+      </select>
+    </div>
+    <div class="panel-toolbar" id="source-toolbar" style="display:none">
+      <button class="select-all-btn" onclick="toggleSelectAll()">全選</button>
+      <button class="select-all-btn" onclick="clearSelection()">清除</button>
+      <span class="count-badge" id="total-count"></span>
+      <span class="selected-count" id="selected-count">0 部</span>
+    </div>
+    <div id="source-content">
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        <p>選擇來源播放清單</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Panel -->
+  <div class="action-panel">
+    <div class="action-btn-wrap">
+      <button class="btn-action btn-copy" id="btn-copy" onclick="doAction('copy')" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 4px; display:block"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        複製
+      </button>
+      <button class="btn-action btn-move" id="btn-move" onclick="doAction('move')" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 4px; display:block"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        移動
+      </button>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+      <div class="progress-label" id="progress-label"></div>
+    </div>
+  </div>
+
+  <!-- Destination Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <label>目的地播放清單</label>
+      <select class="playlist-select" id="dest-select" onchange="loadDestVideos()">
+        <option value="">— 選擇播放清單 —</option>
+      </select>
+    </div>
+    <div id="dest-content">
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <p>選擇目的地播放清單</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+const SCOPES = 'https://www.googleapis.com/auth/youtube';
+let CLIENT_ID = '';
+let accessToken = '';
+let allPlaylists = [];
+let sourceVideos = [];   // { id, videoId, title, channel, thumb, selected }
+let destVideos = [];
+
+// ─── Init ───────────────────────────────────────────
+window.onload = () => {
+  CLIENT_ID = localStorage.getItem('yt_client_id') || '';
+  if (CLIENT_ID) {
+    document.getElementById('setup-overlay').style.display = 'none';
+    document.getElementById('settings-btn').style.display = '';
+    initGIS();
+  } else {
+    document.getElementById('client-id-input').value = '';
+  }
+};
+
+function saveClientId() {
+  const val = document.getElementById('client-id-input').value.trim();
+  if (!val || !val.includes('.apps.googleusercontent.com')) {
+    showToast('請輸入有效的 Client ID', 'error'); return;
+  }
+  CLIENT_ID = val;
+  localStorage.setItem('yt_client_id', CLIENT_ID);
+  document.getElementById('setup-overlay').style.display = 'none';
+  document.getElementById('settings-btn').style.display = '';
+  initGIS();
+}
+
+function showSetup() {
+  document.getElementById('client-id-input').value = CLIENT_ID;
+  document.getElementById('setup-overlay').style.display = 'flex';
+}
+
+// ─── Google Identity Services ────────────────────────
+function initGIS() {
+  if (typeof google === 'undefined') {
+    setTimeout(initGIS, 300); return;
+  }
+  // Try silent token first
+  const savedToken = sessionStorage.getItem('yt_token');
+  if (savedToken) {
+    accessToken = savedToken;
+    onSignedIn();
+    return;
+  }
+  showSigninScreen();
+}
+
+function showSigninScreen() {
+  document.getElementById('signin-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  renderSigninButton();
+}
+
+function renderSigninButton() {
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: handleIdToken,
+    auto_select: false,
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('g_id_signin'),
+    { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular', width: 240 }
+  );
+  // Also use token client for OAuth scopes
+  window._tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { showToast('登入失敗：' + resp.error, 'error'); return; }
+      accessToken = resp.access_token;
+      sessionStorage.setItem('yt_token', accessToken);
+      onSignedIn();
+    }
+  });
+  // Render a custom sign-in button
+  document.getElementById('g_id_signin').innerHTML =
+    `<button class="btn btn-primary" style="width:240px" onclick="window._tokenClient.requestAccessToken()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      使用 Google 登入
+    </button>`;
+}
+
+function handleIdToken(resp) {
+  // Parse JWT to get user info (we still need OAuth token for API)
+  window._tokenClient.requestAccessToken();
+}
+
+async function onSignedIn() {
+  document.getElementById('signin-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'grid';
+
+  // Fetch user profile
+  try {
+    const r = await ytFetch('https://www.googleapis.com/oauth2/v3/userinfo');
+    const u = await r.json();
+    document.getElementById('user-info').style.display = 'flex';
+    document.getElementById('user-name').textContent = u.name || u.email;
+    document.getElementById('user-avatar').src = u.picture || '';
+  } catch(e) {}
+
+  await loadPlaylists();
+}
+
+function signOut() {
+  accessToken = '';
+  sessionStorage.removeItem('yt_token');
+  document.getElementById('user-info').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  sourceVideos = []; destVideos = []; allPlaylists = [];
+  showSigninScreen();
+}
+
+// ─── API Helpers ─────────────────────────────────────
+function ytFetch(url, opts = {}) {
+  return fetch(url, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+}
+
+async function ytGetAll(baseUrl) {
+  let items = [], pageToken = '';
+  do {
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    const r = await ytFetch(baseUrl + sep + (pageToken ? 'pageToken=' + pageToken : ''));
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    items = items.concat(d.items || []);
+    pageToken = d.nextPageToken || '';
+  } while (pageToken);
+  return items;
+}
+
+// ─── Playlists ───────────────────────────────────────
+async function loadPlaylists() {
+  setSourceContent('<div class="loading-state"><div class="spinner"></div></div>');
+  try {
+    const items = await ytGetAll(
+      'https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50'
+    );
+    allPlaylists = items.map(i => ({
+      id: i.id,
+      title: i.snippet.title,
+      count: i.contentDetails.itemCount
+    }));
+    populateSelects();
+    setSourceContent(emptyState('選擇來源播放清單'));
+  } catch(e) {
+    if (e.message && e.message.includes('invalid_token')) {
+      sessionStorage.removeItem('yt_token');
+      signOut();
+    } else {
+      showToast('載入播放清單失敗：' + e.message, 'error');
+    }
+  }
+}
+
+function populateSelects() {
+  const opts = allPlaylists.map(p =>
+    `<option value="${p.id}">${escHtml(p.title)} (${p.count})</option>`
+  ).join('');
+  const placeholder = '<option value="">— 選擇播放清單 —</option>';
+  document.getElementById('source-select').innerHTML = placeholder + opts;
+  document.getElementById('dest-select').innerHTML = placeholder + opts;
+}
+
+// ─── Source Videos ───────────────────────────────────
+async function loadSourceVideos() {
+  const id = document.getElementById('source-select').value;
+  if (!id) { setSourceContent(emptyState('選擇來源播放清單')); hideToolbar(); return; }
+  setSourceContent('<div class="loading-state"><div class="spinner"></div></div>');
+  hideToolbar();
+  try {
+    const items = await ytGetAll(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${id}&maxResults=50`
+    );
+    sourceVideos = items.map(i => ({
+      id: i.id,
+      videoId: i.snippet.resourceId.videoId,
+      title: i.snippet.title || '（無法取得標題）',
+      channel: i.snippet.videoOwnerChannelTitle || '',
+      thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
+      selected: false,
+      unavailable: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
+    }));
+    renderSourceVideos();
+    showToolbar();
+    updateCounts();
+  } catch(e) {
+    setSourceContent(emptyState('載入失敗：' + e.message));
+  }
+}
+
+function renderSourceVideos() {
+  if (!sourceVideos.length) {
+    setSourceContent(emptyState('此播放清單是空的'));
+    return;
+  }
+  const html = '<div class="video-list" id="video-list">' +
+    sourceVideos.map((v, i) =>
+      `<div class="video-item${v.selected ? ' selected' : ''}${v.unavailable ? ' unavailable' : ''}"
+            onclick="toggleVideo(${i})">
+        <div class="video-checkbox"></div>
+        <img class="video-thumb" src="${v.thumb || ''}" alt="" loading="lazy" onerror="this.src=''">
+        <div class="video-info">
+          <div class="video-title">${escHtml(v.title)}</div>
+          <div class="video-channel">${escHtml(v.channel)}</div>
+        </div>
+      </div>`
+    ).join('') + '</div>';
+  setSourceContent(html);
+}
+
+function toggleVideo(i) {
+  sourceVideos[i].selected = !sourceVideos[i].selected;
+  const items = document.querySelectorAll('.video-item');
+  if (items[i]) {
+    items[i].classList.toggle('selected', sourceVideos[i].selected);
+  }
+  updateCounts();
+}
+
+function toggleSelectAll() {
+  const anySelected = sourceVideos.some(v => v.selected);
+  sourceVideos.forEach(v => v.selected = !anySelected);
+  renderSourceVideos();
+  updateCounts();
+}
+
+function clearSelection() {
+  sourceVideos.forEach(v => v.selected = false);
+  renderSourceVideos();
+  updateCounts();
+}
+
+function updateCounts() {
+  const sel = sourceVideos.filter(v => v.selected).length;
+  const total = sourceVideos.length;
+  document.getElementById('total-count').textContent = total + ' 部影片';
+  const badge = document.getElementById('selected-count');
+  badge.textContent = sel + ' 部已選';
+  badge.classList.toggle('visible', sel > 0);
+  const hasDest = !!document.getElementById('dest-select').value;
+  document.getElementById('btn-copy').disabled = !(sel > 0 && hasDest);
+  document.getElementById('btn-move').disabled = !(sel > 0 && hasDest);
+}
+
+// ─── Destination Videos ──────────────────────────────
+async function loadDestVideos() {
+  const id = document.getElementById('dest-select').value;
+  if (!id) { setDestContent(emptyState('選擇目的地播放清單')); updateCounts(); return; }
+  setDestContent('<div class="loading-state"><div class="spinner"></div></div>');
+  updateCounts();
+  try {
+    const items = await ytGetAll(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${id}&maxResults=50`
+    );
+    destVideos = items.map(i => ({
+      title: i.snippet.title,
+      thumb: (i.snippet.thumbnails?.default)?.url || ''
+    }));
+    renderDestVideos();
+  } catch(e) {
+    setDestContent(emptyState('載入失敗'));
+  }
+  updateCounts();
+}
+
+function renderDestVideos() {
+  if (!destVideos.length) {
+    setDestContent(emptyState('目的地播放清單是空的'));
+    return;
+  }
+  const html = '<div class="video-list">' +
+    destVideos.map(v =>
+      `<div class="dest-video-item">
+        <img class="dest-thumb" src="${v.thumb}" alt="" loading="lazy" onerror="this.src=''">
+        <div class="dest-title">${escHtml(v.title)}</div>
+      </div>`
+    ).join('') + '</div>';
+  setDestContent(html);
+}
+
+// ─── Copy / Move ─────────────────────────────────────
+async function doAction(type) {
+  const destId = document.getElementById('dest-select').value;
+  const srcId  = document.getElementById('source-select').value;
+  const selected = sourceVideos.filter(v => v.selected && !v.unavailable);
+  if (!selected.length) { showToast('請先選擇影片', 'error'); return; }
+  if (!destId) { showToast('請選擇目的地播放清單', 'error'); return; }
+  if (type === 'move' && srcId === destId) { showToast('來源和目的地不能相同', 'error'); return; }
+
+  setBtnsDisabled(true);
+  showProgress(0, `正在${type === 'copy' ? '複製' : '移動'} 0/${selected.length}`);
+
+  let done = 0, failed = 0;
+  for (const video of selected) {
+    try {
+      // Add to destination
+      const body = {
+        snippet: {
+          playlistId: destId,
+          resourceId: { kind: 'youtube#video', videoId: video.videoId }
+        }
+      };
+      const r = await ytFetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
+        method: 'POST', body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      if (d.error) { failed++; console.warn(d.error.message); }
+      else {
+        // If moving, delete from source
+        if (type === 'move') {
+          await ytFetch(`https://www.googleapis.com/youtube/v3/playlistItems?id=${video.id}`, { method: 'DELETE' });
+        }
+        done++;
+      }
+    } catch(e) { failed++; }
+    showProgress(Math.round((done + failed) / selected.length * 100),
+      `${type === 'copy' ? '複製' : '移動'} ${done + failed}/${selected.length}`);
+  }
+
+  hideProgress();
+  setBtnsDisabled(false);
+
+  const label = type === 'copy' ? '複製' : '移動';
+  if (failed === 0) showToast(`✓ 成功${label} ${done} 部影片`, 'success');
+  else showToast(`${label}完成：${done} 成功，${failed} 失敗`, done ? '' : 'error');
+
+  // Refresh
+  if (type === 'move') {
+    clearSelection();
+    await loadSourceVideos();
+  }
+  await loadDestVideos();
+  if (type !== 'move') clearSelection();
+  await loadPlaylists(); // refresh counts
+}
+
+// ─── UI Helpers ──────────────────────────────────────
+function setSourceContent(html) { document.getElementById('source-content').innerHTML = html; }
+function setDestContent(html) { document.getElementById('dest-content').innerHTML = html; }
+function showToolbar() { document.getElementById('source-toolbar').style.display = 'flex'; }
+function hideToolbar() { document.getElementById('source-toolbar').style.display = 'none'; }
+function setBtnsDisabled(v) {
+  document.getElementById('btn-copy').disabled = v;
+  document.getElementById('btn-move').disabled = v;
+}
+function showProgress(pct, label) {
+  document.getElementById('progress-wrap').classList.add('visible');
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+function hideProgress() { document.getElementById('progress-wrap').classList.remove('visible'); }
+
+function emptyState(msg) {
+  return `<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><p>${escHtml(msg)}</p></div>`;
+}
+
+let _toastTimer;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
