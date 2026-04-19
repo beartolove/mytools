@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器 (v0.17)</title>
+<title>YouTube 播放清單管理器 (v0.18)</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
@@ -149,34 +149,6 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 .panel-header > label {
   display:block; font-size:0.7em; text-transform:uppercase;
   letter-spacing:0.09em; color:var(--text-muted); margin-bottom:6px; font-weight:700;
-}
-
-/* ─ Watch Later row ───────────────────────────── */
-.wl-row {
-  flex-shrink:0;
-  display:flex; align-items:center; gap:9px; padding:8px 12px;
-  border-bottom:2px solid var(--border); background:#fffbe6;
-  cursor:pointer; transition:background 0.12s; user-select:none;
-}
-.wl-row:hover { background:#fff5c0; }
-.wl-row.active { background:#fff0a0; border-bottom-color:#e0b800; }
-.wl-icon {
-  font-size:1em; width:26px; height:19px; display:flex; align-items:center;
-  justify-content:center; background:rgba(224,184,0,0.2); border-radius:3px; flex-shrink:0;
-}
-.wl-text { flex:1; min-width:0; }
-.wl-title { font-size:0.86em; font-weight:700; color:#7a5800; }
-.wl-sub { font-size:0.7em; color:#aa8800; }
-.wl-dot {
-  width:14px; height:14px; border-radius:50%; flex-shrink:0;
-  border:2px solid #c8a000; background:transparent; transition:all 0.15s;
-  display:flex; align-items:center; justify-content:center;
-}
-.wl-row.active .wl-dot { background:#e0b800; border-color:#e0b800; }
-.wl-row.active .wl-dot::after {
-  content:''; display:block; width:6px; height:3.5px;
-  border-left:1.5px solid white; border-bottom:1.5px solid white;
-  transform:rotate(-45deg) translateY(-1px);
 }
 
 /* ─ Sort bar ──────────────────────────────────── */
@@ -433,7 +405,7 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
   <div class="setup-box">
     <div class="setup-logo">
       <svg width="30" height="21" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="5" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-      <span>播放清單管理器 (v0.17)</span>
+      <span>播放清單管理器 (v0.18)</span>
     </div>
     <h2>Google OAuth 設定</h2>
     <p>需要 Google OAuth Client ID 才能存取 YouTube 資料。已預填預設值，可直接繼續或換成你自己的。</p>
@@ -460,7 +432,7 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 <header>
   <div class="header-logo">
     <svg width="24" height="17" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="4" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-    <span>播放清單管理器 (v0.17)</span>
+    <span>播放清單管理器 (v0.18)</span>
   </div>
   <div class="header-spacer"></div>
   <div class="font-ctrl" title="調整字體大小">
@@ -498,15 +470,6 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 
   <!-- ── Source Panel ── -->
   <div class="panel">
-    <!-- Watch Later -->
-    <div class="wl-row" id="src-wl" onclick="pickWL('src')">
-      <div class="wl-icon">⭐</div>
-      <div class="wl-text">
-        <div class="wl-title">稍後觀看</div>
-        <div class="wl-sub" id="src-wl-sub">點擊載入</div>
-      </div>
-      <div class="wl-dot" id="src-wl-dot"></div>
-    </div>
     <!-- Playlist select -->
     <div class="panel-header">
       <label>來源播放清單</label>
@@ -565,15 +528,6 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 
   <!-- ── Destination Panel ── -->
   <div class="panel">
-    <!-- Watch Later -->
-    <div class="wl-row" id="dst-wl" onclick="pickWL('dst')">
-      <div class="wl-icon">⭐</div>
-      <div class="wl-text">
-        <div class="wl-title">稍後觀看</div>
-        <div class="wl-sub" id="dst-wl-sub">點擊設為目的地</div>
-      </div>
-      <div class="wl-dot" id="dst-wl-dot"></div>
-    </div>
     <!-- Playlist select -->
     <div class="panel-header">
       <label>目的地播放清單</label>
@@ -635,7 +589,6 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 // ── Config ──────────────────────────────────────────
 const DEFAULT_CID = '16030680939-367is36am4qosbp4q6obk7rpb56ljek4.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/youtube';
-const WL = 'WL';
 
 let cid = localStorage.getItem('yt_cid') || DEFAULT_CID;
 let tok = '', playlists = [], srcVids = [], dstVids = [];
@@ -695,34 +648,16 @@ function fillSel(id, list) {
     }).join('');
 }
 
-// ── Watch Later ─────────────────────────────────────
-async function pickWL(p) {
-  if (p === 'src') {
-    document.getElementById('src-sel').value = '';
-    wlActive('src', true); wlActive('dst', dstId === WL);
-    srcId = WL;
-    await loadSrc(WL);
-  } else {
-    document.getElementById('dst-sel').value = '';
-    wlActive('dst', true); wlActive('src', srcId === WL);
-    dstId = WL;
-    await loadDst(WL);
-  }
-  updBtns();
-}
-function wlActive(p, on) {
-  document.getElementById(p + '-wl').classList.toggle('active', on);
-}
 function onSrc() {
   const v = document.getElementById('src-sel').value;
-  wlActive('src', false); srcId = v;
+  srcId = v;
   if (v) loadSrc(v);
   else { setSrc(emptyEl('選擇來源播放清單')); hideBar(); }
   updBtns();
 }
 function onDst() {
   const v = document.getElementById('dst-sel').value;
-  wlActive('dst', false); dstId = v;
+  dstId = v;
   if (v) loadDst(v);
   else setDst(emptyEl('選擇目的地播放清單'));
   updBtns();
@@ -800,7 +735,6 @@ function signOut() {
   document.getElementById('clean-btn').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   playlists = []; srcVids = []; dstVids = []; srcId = ''; dstId = '';
-  wlActive('src', false); wlActive('dst', false);
   window._tc = null;
   showSignin();
 }
@@ -842,28 +776,6 @@ async function loadPlaylists() {
 // ── Source Videos ────────────────────────────────────
 async function loadSrc(pid) {
   setSrc(loadEl()); hideBar();
-  // WL: YouTube API blocks read access since 2016 - show helpful notice
-  if (pid === WL) {
-    document.getElementById('src-wl-sub').textContent = '載入中...';
-    try {
-      const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${WL}&maxResults=50`);
-      if (items.length === 0) {
-        // API succeeded but returns empty - known YouTube API limitation
-        setSrc(wlNoticeEl());
-        document.getElementById('src-wl-sub').textContent = 'API 限制（見說明）';
-        return;
-      }
-      srcVids = items.map(mapVid);
-      renderSrc();
-      if (srcVids.length) showBar();
-      updCounts();
-      document.getElementById('src-wl-sub').textContent = items.length + ' 部影片';
-    } catch(e) {
-      setSrc(wlNoticeEl());
-      document.getElementById('src-wl-sub').textContent = 'API 限制（見說明）';
-    }
-    return;
-  }
   try {
     const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${pid}&maxResults=50`);
     srcVids = items.map(mapVid);
@@ -873,28 +785,6 @@ async function loadSrc(pid) {
   } catch(e) {
     setSrc(emptyEl('載入失敗：' + e.message));
   }
-}
-function mapVid(i) {
-  return {
-    id: i.id,
-    vid: i.snippet.resourceId.videoId,
-    title: i.snippet.title || '（無法取得標題）',
-    ch: i.snippet.videoOwnerChannelTitle || '',
-    thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
-    sel: false,
-    na: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
-  };
-}
-function wlNoticeEl() {
-  return `<div class="wl-notice">
-    <div class="wl-notice-icon">⭐</div>
-    <div class="wl-notice-title">稍後觀看無法透過 API 讀取</div>
-    <div class="wl-notice-msg">Google 自 2016 年起限制第三方應用程式讀取稍後觀看清單的內容，這是 YouTube 平台政策，非程式問題。<br><br>你仍可將其他播放清單的影片<strong>複製或移動到稍後觀看</strong>（目的地選稍後觀看即可）。<br><br>若要直接管理稍後觀看清單，請前往 YouTube：</div>
-    <a class="wl-open-link" href="https://www.youtube.com/playlist?list=WL" target="_blank">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      在 YouTube 開啟稍後觀看
-    </a>
-  </div>`;
 }
 function renderSrc() {
   if (!srcVids.length) { setSrc(emptyEl('此播放清單是空的')); return; }
