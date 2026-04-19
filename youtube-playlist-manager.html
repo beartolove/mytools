@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器 (v0.14)</title>
+<title>YouTube 播放清單管理器 (v0.17)</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
@@ -92,18 +92,18 @@ body {
 
 /* ─ Font size control ─────────────────────────── */
 .font-ctrl {
-  display:flex; align-items:center; background:white;
-  border:1px solid var(--border); border-radius:6px; overflow:hidden; height:28px;
+  display:flex; align-items:center; background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.25); border-radius:6px; overflow:hidden; height:28px;
 }
 .font-btn {
-  background:none; border:none; color:var(--text-muted); padding:0 9px;
+  background:none; border:none; color:rgba(255,255,255,0.7); padding:0 9px;
   cursor:pointer; font-size:0.88em; font-weight:700; height:100%;
   transition:background 0.12s, color 0.12s; display:flex; align-items:center;
 }
-.font-btn:hover { background:var(--surface2); color:var(--accent); }
+.font-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
 .font-size-label {
-  font-size:0.75em; color:var(--text-dim); padding:0 5px; font-weight:600;
-  border-left:1px solid var(--border); border-right:1px solid var(--border);
+  font-size:0.75em; color:rgba(255,255,255,0.55); padding:0 5px; font-weight:600;
+  border-left:1px solid rgba(255,255,255,0.2); border-right:1px solid rgba(255,255,255,0.2);
   height:100%; display:flex; align-items:center; min-width:30px; justify-content:center;
 }
 
@@ -111,20 +111,26 @@ body {
 header {
   display:flex; align-items:center; gap:10px;
   padding:0 1.25rem; height:52px;
-  border-bottom:1px solid var(--border); background:var(--surface);
+  border-bottom:1px solid #222; background:#333;
   position:sticky; top:0; z-index:100;
-  box-shadow:0 1px 3px rgba(0,0,0,0.08);
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
 }
 .header-logo { display:flex; align-items:center; gap:8px; }
-.header-logo span { font-weight:700; font-size:0.95em; color:var(--text); }
+.header-logo span { font-weight:700; font-size:0.95em; color:#fff; }
 .header-spacer { flex:1; }
-.user-info { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:0.85em; }
-.avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; border:2px solid var(--border); }
+.user-info { display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.65); font-size:0.85em; }
+.avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.3); }
 .btn-signout {
-  background:none; border:1px solid var(--border); color:var(--text-muted);
+  background:none; border:1px solid rgba(255,255,255,0.25); color:rgba(255,255,255,0.65);
   padding:4px 9px; border-radius:5px; font-size:0.8em; cursor:pointer; transition:all 0.12s;
 }
-.btn-signout:hover { background:var(--surface2); color:var(--text); border-color:#999; }
+.btn-signout:hover { background:rgba(255,255,255,0.12); color:#fff; border-color:rgba(255,255,255,0.4); }
+/* header 內的 btn-ghost（設定、清空清單按鈕） */
+header .btn-ghost {
+  background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.8);
+  border:1px solid rgba(255,255,255,0.25);
+}
+header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 
 /* ─ App layout ────────────────────────────────── */
 #app {
@@ -427,7 +433,7 @@ header {
   <div class="setup-box">
     <div class="setup-logo">
       <svg width="30" height="21" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="5" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-      <span>播放清單管理器 (v0.14)</span>
+      <span>播放清單管理器 (v0.17)</span>
     </div>
     <h2>Google OAuth 設定</h2>
     <p>需要 Google OAuth Client ID 才能存取 YouTube 資料。已預填預設值，可直接繼續或換成你自己的。</p>
@@ -454,7 +460,7 @@ header {
 <header>
   <div class="header-logo">
     <svg width="24" height="17" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="4" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-    <span>播放清單管理器 (v0.14)</span>
+    <span>播放清單管理器 (v0.17)</span>
   </div>
   <div class="header-spacer"></div>
   <div class="font-ctrl" title="調整字體大小">
@@ -649,15 +655,23 @@ function adjFont(d) {
 }
 
 // ── Sort ────────────────────────────────────────────
+const PIN_NAME = '___2026稍後觀看';
+
 function sorted(panel) {
   const by = document.getElementById(panel + '-sort').value;
   const asc = sortDir[panel] === 'asc';
-  return [...playlists].sort((a,b) => {
+
+  const pinned = playlists.filter(p => p.title === PIN_NAME);
+  const rest   = playlists.filter(p => p.title !== PIN_NAME);
+
+  rest.sort((a, b) => {
     let r = by === 'title' ? a.title.localeCompare(b.title, 'zh-Hant')
           : by === 'pub'   ? (a.pub||'').localeCompare(b.pub||'')
           :                   a.count - b.count;
     return asc ? r : -r;
   });
+
+  return [...pinned, ...rest];
 }
 function flipDir(p) {
   sortDir[p] = sortDir[p] === 'asc' ? 'desc' : 'asc';
@@ -675,7 +689,10 @@ function rePop() {
 function fillSel(id, list) {
   document.getElementById(id).innerHTML =
     '<option value="">— 選擇其他播放清單 —</option>' +
-    list.map(p => `<option value="${p.id}">${esc(p.title)} (${p.count})</option>`).join('');
+    list.map(p => {
+      const label = p.title === PIN_NAME ? '📌 ' + p.title : p.title;
+      return `<option value="${p.id}">${esc(label)} (${p.count})</option>`;
+    }).join('');
 }
 
 // ── Watch Later ─────────────────────────────────────
