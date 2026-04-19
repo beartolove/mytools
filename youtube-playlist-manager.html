@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器 (v0.13)</title>
+<title>YouTube 播放清單管理器 (v0.14)</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
@@ -348,6 +348,76 @@ header {
   padding:7px 14px; border-radius:var(--r); font-size:0.88em; cursor:pointer; font-weight:700;
 }
 .btn-ok-del:hover { background:var(--danger-bgh); }
+
+/* ─ WL API notice ─────────────────────────────── */
+.wl-notice {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:10px; padding:1.5rem; text-align:center;
+}
+.wl-notice-icon { font-size:2em; }
+.wl-notice-title { font-size:0.95em; font-weight:700; color:var(--text); }
+.wl-notice-msg { font-size:0.82em; color:var(--text-muted); line-height:1.65; max-width:260px; }
+.wl-open-link {
+  display:inline-flex; align-items:center; gap:5px;
+  background:var(--accent); color:white; text-decoration:none;
+  padding:8px 16px; border-radius:var(--r); font-size:0.85em; font-weight:700;
+  transition:background 0.15s;
+}
+.wl-open-link:hover { background:var(--accent-dk); }
+
+/* ─ Clean playlists modal ─────────────────────── */
+#clean-modal {
+  position:fixed; inset:0; background:rgba(0,0,0,0.45);
+  display:none; align-items:center; justify-content:center; z-index:2000;
+}
+#clean-modal.on { display:flex; }
+.clean-box {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:1.4rem 1.8rem;
+  max-width:420px; width:92%; max-height:80vh;
+  display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.2);
+}
+.clean-box h3 { font-size:1.05em; font-weight:700; margin-bottom:0.3rem; }
+.clean-box > p { color:var(--text-muted); font-size:0.85em; margin-bottom:0.9rem; line-height:1.6; }
+.clean-list { flex:1; min-height:0; overflow-y:auto; border:1px solid var(--border2); border-radius:var(--r); }
+.clean-item {
+  display:flex; align-items:center; gap:9px; padding:9px 12px;
+  border-bottom:1px solid var(--border2); cursor:pointer; transition:background 0.1s;
+}
+.clean-item:last-child { border-bottom:none; }
+.clean-item:hover { background:var(--surface2); }
+.clean-item.sel { background:var(--danger-bg); }
+.clean-chk {
+  width:14px; height:14px; flex-shrink:0;
+  border:1.5px solid var(--border); border-radius:3px; background:white;
+  display:flex; align-items:center; justify-content:center; transition:all 0.1s;
+}
+.clean-item.sel .clean-chk { background:var(--danger); border-color:var(--danger); }
+.clean-item.sel .clean-chk::after {
+  content:''; display:block; width:7px; height:4px;
+  border-left:1.5px solid white; border-bottom:1.5px solid white;
+  transform:rotate(-45deg) translateY(-1px);
+}
+.clean-name { flex:1; font-size:0.88em; color:var(--text); }
+.clean-badge {
+  font-size:0.72em; padding:1px 6px; border-radius:8px;
+  background:var(--surface3); color:var(--text-muted); border:1px solid var(--border2);
+}
+.clean-empty { padding:1.5rem; text-align:center; color:var(--text-muted); font-size:0.88em; }
+.clean-footer { display:flex; align-items:center; gap:8px; margin-top:0.9rem; }
+.clean-footer-count { font-size:0.82em; color:var(--text-muted); }
+.clean-footer-spacer { flex:1; }
+.btn-clean-all {
+  background:none; border:1px solid var(--border); color:var(--text-muted);
+  padding:5px 10px; border-radius:var(--r); font-size:0.8em; cursor:pointer;
+}
+.btn-clean-all:hover { background:var(--surface2); }
+.btn-clean-del {
+  background:var(--danger-bg); border:1px solid rgba(187,34,34,0.5); color:var(--danger);
+  padding:7px 14px; border-radius:var(--r); font-size:0.88em; cursor:pointer; font-weight:700;
+}
+.btn-clean-del:hover:not(:disabled) { background:var(--danger-bgh); }
+.btn-clean-del:disabled { opacity:0.4; cursor:not-allowed; }
 </style>
 </head>
 <body>
@@ -357,7 +427,7 @@ header {
   <div class="setup-box">
     <div class="setup-logo">
       <svg width="30" height="21" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="5" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-      <span>播放清單管理器 (v0.13)</span>
+      <span>播放清單管理器 (v0.14)</span>
     </div>
     <h2>Google OAuth 設定</h2>
     <p>需要 Google OAuth Client ID 才能存取 YouTube 資料。已預填預設值，可直接繼續或換成你自己的。</p>
@@ -384,7 +454,7 @@ header {
 <header>
   <div class="header-logo">
     <svg width="24" height="17" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="4" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-    <span>播放清單管理器 (v0.13)</span>
+    <span>播放清單管理器 (v0.14)</span>
   </div>
   <div class="header-spacer"></div>
   <div class="font-ctrl" title="調整字體大小">
@@ -397,6 +467,10 @@ header {
     <span id="uname"></span>
     <button class="btn-signout" onclick="signOut()">登出</button>
   </div>
+  <button class="btn btn-ghost" id="clean-btn" onclick="openClean()" style="display:none" title="列出並刪除空播放清單">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    清空清單
+  </button>
   <button class="btn btn-ghost" id="cfg-btn" onclick="showSetup()" style="display:none">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     設定
@@ -529,6 +603,22 @@ header {
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
       <button class="btn-ok-del" id="modal-ok">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clean Empty Playlists Modal -->
+<div id="clean-modal">
+  <div class="clean-box">
+    <h3>🗑 刪除空播放清單</h3>
+    <p id="clean-intro">正在載入...</p>
+    <div class="clean-list" id="clean-list"></div>
+    <div class="clean-footer">
+      <span class="clean-footer-count" id="clean-count"></span>
+      <button class="btn-clean-all" onclick="cleanToggleAll()">全選 / 取消</button>
+      <div class="clean-footer-spacer"></div>
+      <button class="btn-cancel" onclick="closeClean()">取消</button>
+      <button class="btn-clean-del" id="clean-ok" onclick="doClean()" disabled>刪除已選</button>
     </div>
   </div>
 </div>
@@ -684,11 +774,13 @@ async function onSignedIn() {
     document.getElementById('uname').textContent = u.name || u.email;
     document.getElementById('uavatar').src = u.picture || '';
   } catch(e) {}
+  document.getElementById('clean-btn').style.display = '';
   loadPlaylists();
 }
 function signOut() {
   tok = ''; sessionStorage.removeItem('yt_tok');
   document.getElementById('uinfo').style.display = 'none';
+  document.getElementById('clean-btn').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   playlists = []; srcVids = []; dstVids = []; srcId = ''; dstId = '';
   wlActive('src', false); wlActive('dst', false);
@@ -733,24 +825,59 @@ async function loadPlaylists() {
 // ── Source Videos ────────────────────────────────────
 async function loadSrc(pid) {
   setSrc(loadEl()); hideBar();
+  // WL: YouTube API blocks read access since 2016 - show helpful notice
+  if (pid === WL) {
+    document.getElementById('src-wl-sub').textContent = '載入中...';
+    try {
+      const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${WL}&maxResults=50`);
+      if (items.length === 0) {
+        // API succeeded but returns empty - known YouTube API limitation
+        setSrc(wlNoticeEl());
+        document.getElementById('src-wl-sub').textContent = 'API 限制（見說明）';
+        return;
+      }
+      srcVids = items.map(mapVid);
+      renderSrc();
+      if (srcVids.length) showBar();
+      updCounts();
+      document.getElementById('src-wl-sub').textContent = items.length + ' 部影片';
+    } catch(e) {
+      setSrc(wlNoticeEl());
+      document.getElementById('src-wl-sub').textContent = 'API 限制（見說明）';
+    }
+    return;
+  }
   try {
     const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${pid}&maxResults=50`);
-    srcVids = items.map(i => ({
-      id: i.id,
-      vid: i.snippet.resourceId.videoId,
-      title: i.snippet.title || '（無法取得標題）',
-      ch: i.snippet.videoOwnerChannelTitle || '',
-      thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
-      sel: false,
-      na: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
-    }));
-    renderSrc(); showBar(); updCounts();
-    if (pid === WL) document.getElementById('src-wl-sub').textContent = items.length + ' 部影片';
+    srcVids = items.map(mapVid);
+    renderSrc();
+    if (srcVids.length) showBar();
+    updCounts();
   } catch(e) {
-    const msg = e.message?.includes('403') ? 'YouTube 限制：無法透過 API 讀取稍後觀看清單' : '載入失敗：' + e.message;
-    setSrc(emptyEl(msg));
-    if (pid === WL) document.getElementById('src-wl-sub').textContent = 'API 限制';
+    setSrc(emptyEl('載入失敗：' + e.message));
   }
+}
+function mapVid(i) {
+  return {
+    id: i.id,
+    vid: i.snippet.resourceId.videoId,
+    title: i.snippet.title || '（無法取得標題）',
+    ch: i.snippet.videoOwnerChannelTitle || '',
+    thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
+    sel: false,
+    na: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
+  };
+}
+function wlNoticeEl() {
+  return `<div class="wl-notice">
+    <div class="wl-notice-icon">⭐</div>
+    <div class="wl-notice-title">稍後觀看無法透過 API 讀取</div>
+    <div class="wl-notice-msg">Google 自 2016 年起限制第三方應用程式讀取稍後觀看清單的內容，這是 YouTube 平台政策，非程式問題。<br><br>你仍可將其他播放清單的影片<strong>複製或移動到稍後觀看</strong>（目的地選稍後觀看即可）。<br><br>若要直接管理稍後觀看清單，請前往 YouTube：</div>
+    <a class="wl-open-link" href="https://www.youtube.com/playlist?list=WL" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      在 YouTube 開啟稍後觀看
+    </a>
+  </div>`;
 }
 function renderSrc() {
   if (!srcVids.length) { setSrc(emptyEl('此播放清單是空的')); return; }
@@ -904,6 +1031,65 @@ function toast(msg, type='') {
 }
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Clean Empty Playlists ────────────────────────────
+let cleanItems = []; // { id, title, sel }
+
+function openClean() {
+  const empty = playlists.filter(p => p.count === 0);
+  cleanItems = empty.map(p => ({ id: p.id, title: p.title, sel: false }));
+  const listEl = document.getElementById('clean-list');
+  const introEl = document.getElementById('clean-intro');
+  if (!cleanItems.length) {
+    introEl.textContent = '你目前沒有空的播放清單。';
+    listEl.innerHTML = '<div class="clean-empty">✓ 所有播放清單都有影片</div>';
+    document.getElementById('clean-ok').disabled = true;
+  } else {
+    introEl.textContent = `找到 ${cleanItems.length} 個空播放清單，勾選後刪除：`;
+    renderCleanList();
+  }
+  document.getElementById('clean-modal').classList.add('on');
+}
+function renderCleanList() {
+  const listEl = document.getElementById('clean-list');
+  listEl.innerHTML = cleanItems.map((p, i) =>
+    `<div class="clean-item${p.sel?' sel':''}" onclick="togClean(${i})">
+      <div class="clean-chk"></div>
+      <span class="clean-name">${esc(p.title)}</span>
+      <span class="clean-badge">0 部影片</span>
+    </div>`
+  ).join('');
+  const selCount = cleanItems.filter(p => p.sel).length;
+  document.getElementById('clean-count').textContent = selCount ? `已選 ${selCount} 個` : '';
+  document.getElementById('clean-ok').disabled = selCount === 0;
+}
+function togClean(i) {
+  cleanItems[i].sel = !cleanItems[i].sel;
+  renderCleanList();
+}
+function cleanToggleAll() {
+  const any = cleanItems.some(p => p.sel);
+  cleanItems.forEach(p => p.sel = !any);
+  renderCleanList();
+}
+function closeClean() { document.getElementById('clean-modal').classList.remove('on'); }
+
+async function doClean() {
+  const sel = cleanItems.filter(p => p.sel);
+  if (!sel.length) return;
+  document.getElementById('clean-ok').disabled = true;
+  let ok = 0, fail = 0;
+  for (const p of sel) {
+    try {
+      const r = await api(`https://www.googleapis.com/youtube/v3/playlists?id=${p.id}`, { method: 'DELETE' });
+      (r.status === 204 || r.status === 200) ? ok++ : fail++;
+    } catch(e) { fail++; }
+  }
+  closeClean();
+  fail === 0 ? toast(`✓ 已刪除 ${ok} 個空播放清單`, 'ok')
+             : toast(`刪除完成：${ok} 成功，${fail} 失敗`, ok?'':'err');
+  await loadPlaylists();
 }
 </script>
 </body>
