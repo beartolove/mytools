@@ -3,431 +3,378 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器</title>
+<title>YouTube 播放清單管理器 (v0.13)</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
-  --bg: #0f0f0f;
-  --surface: #181818;
-  --surface2: #222;
-  --surface3: #2a2a2a;
-  --border: #3a3a3a;
-  --text: #f1f1f1;
-  --text-muted: #909090;
-  --text-dim: #606060;
-  --accent: #ff0000;
-  --accent-dark: #cc0000;
-  --accent-bg: rgba(255,0,0,0.08);
-  --accent-bg-hover: rgba(255,0,0,0.15);
-  --success: #00c853;
-  --success-bg: rgba(0,200,83,0.1);
-  --warning: #ffa000;
-  --r: 8px;
-  --r-lg: 12px;
-  --r-xl: 16px;
-  --app-font-size: 14px;
+  --bg:       #cccccc;
+  --surface:  #f2f2f2;
+  --surface2: #e6e6e6;
+  --surface3: #d8d8d8;
+  --border:   #b0b0b0;
+  --border2:  #c4c4c4;
+  --text:     #1a1a1a;
+  --text-muted: #555555;
+  --text-dim:   #888888;
+  --accent:     #cc0000;
+  --accent-dk:  #990000;
+  --accent-bg:  rgba(180,0,0,0.07);
+  --accent-bgh: rgba(180,0,0,0.13);
+  --success:  #1a7a3c;
+  --danger:   #bb2222;
+  --danger-bg:  rgba(187,34,34,0.08);
+  --danger-bgh: rgba(187,34,34,0.15);
+  --r:8px; --r-lg:12px; --r-xl:16px;
 }
-body { font-size: var(--app-font-size); }
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { height: 100%; }
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; }
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  line-height: 1.5;
+  font-family: system-ui,-apple-system,"Segoe UI","Helvetica Neue",sans-serif;
+  font-size: 14px;   /* JS will change this directly */
+  background: var(--bg); color: var(--text);
+  min-height:100vh; line-height:1.5;
 }
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--surface2); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:#999; }
 
-/* ── Font Size Control ── */
-.font-ctrl {
-  display: flex; align-items: center; gap: 0;
-  border: 1px solid var(--border); border-radius: 6px;
-  overflow: hidden; height: 28px;
-}
-.font-btn {
-  background: none; border: none; color: var(--text-muted);
-  padding: 0 9px; cursor: pointer; font-size: 14px; height: 100%;
-  transition: background 0.12s, color 0.12s;
-  display: flex; align-items: center; justify-content: center;
-}
-.font-btn:hover { background: var(--surface2); color: var(--text); }
-.font-size-label {
-  font-size: 11px; color: var(--text-dim); padding: 0 6px;
-  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
-  height: 100%; display: flex; align-items: center; min-width: 34px; justify-content: center;
-}
-
-/* ── Sort Bar ── */
-.sort-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-.sort-bar > span {
-  font-size: 11px; color: var(--text-dim); white-space: nowrap;
-}
-.sort-select {
-  flex: 1; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 5px;
-  color: var(--text); padding: 3px 22px 3px 7px; font-size: 11px;
-  outline: none; cursor: pointer; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23909090' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 6px center;
-}
-.sort-select:focus { border-color: var(--accent); }
-.sort-select option { background: #222; }
-.dir-btn {
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--text); cursor: pointer;
-  padding: 3px 8px; font-size: 12px; transition: all 0.12s;
-  white-space: nowrap; display: flex; align-items: center; gap: 2px;
-}
-.dir-btn:hover { background: var(--surface3); }
-.watch-later-badge {
-  display: inline-block; font-size: 10px;
-  background: rgba(255,200,0,0.15); color: #f0c040;
-  border: 1px solid rgba(255,200,0,0.3); border-radius: 3px;
-  padding: 0 4px; vertical-align: middle; margin-left: 4px;
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-/* ── Overlay / Setup ── */
+/* ─ Setup overlay ─────────────────────────────── */
 #setup-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.85);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000; padding: 1rem;
+  position:fixed; inset:0; background:rgba(0,0,0,0.55);
+  display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem;
 }
 .setup-box {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  padding: 2rem 2.5rem;
-  max-width: 480px; width: 100%;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-xl); padding:2rem 2.4rem; max-width:490px; width:100%;
+  box-shadow:0 8px 32px rgba(0,0,0,0.18);
 }
-.setup-logo {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 1.5rem;
-}
-.setup-logo svg { flex-shrink: 0; }
-.setup-logo span { font-size: 20px; font-weight: 600; }
-.setup-box h2 { font-size: 17px; font-weight: 600; margin-bottom: 0.5rem; }
-.setup-box p { color: var(--text-muted); font-size: 13px; margin-bottom: 1.5rem; line-height: 1.7; }
+.setup-logo { display:flex; align-items:center; gap:0.7rem; margin-bottom:1.4rem; }
+.setup-logo span { font-size:1.3em; font-weight:700; }
+.setup-box h2 { font-size:1.1em; font-weight:700; margin-bottom:0.35rem; }
+.setup-box > p { color:var(--text-muted); font-size:0.9em; margin-bottom:1.1rem; line-height:1.7; }
 .setup-steps {
-  background: var(--surface2);
-  border-radius: var(--r);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 2;
+  background:var(--surface2); border:1px solid var(--border2); border-radius:var(--r);
+  padding:0.85rem 1rem; margin-bottom:1.1rem; font-size:0.85em; color:var(--text-muted); line-height:2.1;
 }
-.setup-steps a { color: var(--accent); text-decoration: none; }
-.setup-steps a:hover { text-decoration: underline; }
+.setup-steps a { color:var(--accent); text-decoration:none; }
+.setup-steps a:hover { text-decoration:underline; }
 .setup-steps code {
-  background: var(--surface3); padding: 1px 6px; border-radius: 4px;
-  font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; color: var(--text);
+  background:var(--surface3); border:1px solid var(--border); padding:1px 5px; border-radius:3px;
+  font-family:"SFMono-Regular",Consolas,monospace; font-size:0.88em; color:var(--text);
 }
-.input-group { margin-bottom: 1.25rem; }
-.input-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.03em; text-transform: uppercase; }
+.input-group { margin-bottom:1rem; }
+.input-group label {
+  display:block; font-size:0.75em; color:var(--text-muted); margin-bottom:5px;
+  letter-spacing:0.05em; text-transform:uppercase; font-weight:600;
+}
 .input-group input {
-  width: 100%; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: var(--r);
-  color: var(--text); padding: 10px 12px; font-size: 14px;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  outline: none; transition: border-color 0.15s;
+  width:100%; background:white; border:1px solid var(--border); border-radius:var(--r);
+  color:var(--text); padding:9px 11px; font-size:0.9em;
+  font-family:"SFMono-Regular",Consolas,monospace; outline:none; transition:border-color 0.15s;
 }
-.input-group input:focus { border-color: var(--accent); }
-.input-group input::placeholder { color: var(--text-dim); }
+.input-group input:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(180,0,0,0.1); }
 
+/* ─ Buttons ───────────────────────────────────── */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px 20px; border-radius: var(--r); font-size: 14px; font-weight: 500;
-  cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding:9px 18px; border-radius:var(--r); font-size:0.93em; font-weight:600;
+  cursor:pointer; border:none; transition:all 0.15s; white-space:nowrap;
 }
-.btn-primary { background: var(--accent); color: #fff; width: 100%; }
-.btn-primary:hover { background: var(--accent-dark); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-.btn-ghost:hover { background: var(--surface3); }
-.btn-action {
-  flex: 1; padding: 12px 16px;
-  border-radius: var(--r); font-size: 13px; font-weight: 500;
-  cursor: pointer; transition: all 0.15s; border: 1px solid var(--border);
+.btn-primary { background:var(--accent); color:#fff; width:100%; }
+.btn-primary:hover { background:var(--accent-dk); }
+.btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-ghost {
+  background:var(--surface2); color:var(--text); border:1px solid var(--border);
+  font-size:0.8em; padding:5px 9px; font-weight:500;
 }
-.btn-copy { background: var(--accent-bg); color: #ff6666; border-color: rgba(255,0,0,0.3); }
-.btn-copy:hover:not(:disabled) { background: var(--accent-bg-hover); border-color: rgba(255,0,0,0.5); }
-.btn-move { background: var(--surface2); color: var(--text); }
-.btn-move:hover:not(:disabled) { background: var(--surface3); }
-.btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-ghost:hover { background:var(--surface3); }
 
-/* ── Header ── */
+/* ─ Font size control ─────────────────────────── */
+.font-ctrl {
+  display:flex; align-items:center; background:white;
+  border:1px solid var(--border); border-radius:6px; overflow:hidden; height:28px;
+}
+.font-btn {
+  background:none; border:none; color:var(--text-muted); padding:0 9px;
+  cursor:pointer; font-size:0.88em; font-weight:700; height:100%;
+  transition:background 0.12s, color 0.12s; display:flex; align-items:center;
+}
+.font-btn:hover { background:var(--surface2); color:var(--accent); }
+.font-size-label {
+  font-size:0.75em; color:var(--text-dim); padding:0 5px; font-weight:600;
+  border-left:1px solid var(--border); border-right:1px solid var(--border);
+  height:100%; display:flex; align-items:center; min-width:30px; justify-content:center;
+}
+
+/* ─ Header ────────────────────────────────────── */
 header {
-  display: flex; align-items: center; gap: 12px;
-  padding: 0 1.5rem; height: 56px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  position: sticky; top: 0; z-index: 100;
+  display:flex; align-items:center; gap:10px;
+  padding:0 1.25rem; height:52px;
+  border-bottom:1px solid var(--border); background:var(--surface);
+  position:sticky; top:0; z-index:100;
+  box-shadow:0 1px 3px rgba(0,0,0,0.08);
 }
-.header-logo { display: flex; align-items: center; gap: 8px; }
-.header-logo span { font-weight: 600; font-size: 16px; }
-.header-spacer { flex: 1; }
-.user-info {
-  display: flex; align-items: center; gap: 8px;
-  color: var(--text-muted); font-size: 13px;
-}
-.avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  object-fit: cover; border: 1.5px solid var(--border);
-}
-.avatar-placeholder {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: var(--surface3); border: 1.5px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600; color: var(--text-muted);
-}
+.header-logo { display:flex; align-items:center; gap:8px; }
+.header-logo span { font-weight:700; font-size:0.95em; color:var(--text); }
+.header-spacer { flex:1; }
+.user-info { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:0.85em; }
+.avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; border:2px solid var(--border); }
 .btn-signout {
-  background: none; border: 1px solid var(--border);
-  color: var(--text-muted); padding: 5px 10px;
-  border-radius: 6px; font-size: 12px; cursor: pointer;
+  background:none; border:1px solid var(--border); color:var(--text-muted);
+  padding:4px 9px; border-radius:5px; font-size:0.8em; cursor:pointer; transition:all 0.12s;
 }
-.btn-signout:hover { background: var(--surface2); color: var(--text); }
+.btn-signout:hover { background:var(--surface2); color:var(--text); border-color:#999; }
 
-/* ── Main Layout ── */
-main {
-  display: grid;
-  grid-template-columns: 1fr 160px 1fr;
-  grid-template-rows: 1fr;
-  gap: 0;
-  height: calc(100vh - 56px);
+/* ─ App layout ────────────────────────────────── */
+#app {
+  display:grid; grid-template-columns:1fr 140px 1fr;
+  height:calc(100vh - 52px); overflow:hidden;
 }
 
-/* ── Panel ── */
+/* ─ Panel ─────────────────────────────────────── */
 .panel {
-  display: flex; flex-direction: column;
-  border-right: 1px solid var(--border);
-  overflow: hidden;
+  display:flex; flex-direction:column; min-height:0; /* ← critical for flex scroll */
+  border-right:1px solid var(--border); overflow:hidden; background:var(--surface);
 }
-.panel:last-child { border-right: none; }
-.panel-header {
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-.panel-header label {
-  display: block; font-size: 11px; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;
-}
-.playlist-select {
-  width: 100%; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: var(--r);
-  color: var(--text); padding: 8px 10px; font-size: 13px;
-  outline: none; cursor: pointer; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23909090' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 10px center;
-  padding-right: 30px;
-}
-.playlist-select:focus { border-color: var(--accent); }
-.playlist-select option { background: #222; }
+.panel:last-child { border-right:none; }
 
-.panel-toolbar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+.panel-header { flex-shrink:0; padding:10px 12px 9px; border-bottom:1px solid var(--border); background:var(--surface); }
+.panel-header > label {
+  display:block; font-size:0.7em; text-transform:uppercase;
+  letter-spacing:0.09em; color:var(--text-muted); margin-bottom:6px; font-weight:700;
 }
-.select-all-btn {
-  font-size: 12px; color: var(--text-muted); cursor: pointer;
-  background: none; border: 1px solid var(--border);
-  border-radius: 5px; padding: 3px 8px; transition: all 0.15s;
-}
-.select-all-btn:hover { color: var(--text); border-color: #555; }
-.count-badge {
-  font-size: 11px; color: var(--text-dim); margin-left: auto;
-}
-.selected-count {
-  font-size: 11px; padding: 2px 8px; border-radius: 10px;
-  background: var(--accent-bg); color: #ff6666; font-weight: 500;
-  display: none;
-}
-.selected-count.visible { display: inline-block; }
 
-/* ── Video List ── */
-.video-list {
-  flex: 1; overflow-y: auto; padding: 8px;
+/* ─ Watch Later row ───────────────────────────── */
+.wl-row {
+  flex-shrink:0;
+  display:flex; align-items:center; gap:9px; padding:8px 12px;
+  border-bottom:2px solid var(--border); background:#fffbe6;
+  cursor:pointer; transition:background 0.12s; user-select:none;
 }
+.wl-row:hover { background:#fff5c0; }
+.wl-row.active { background:#fff0a0; border-bottom-color:#e0b800; }
+.wl-icon {
+  font-size:1em; width:26px; height:19px; display:flex; align-items:center;
+  justify-content:center; background:rgba(224,184,0,0.2); border-radius:3px; flex-shrink:0;
+}
+.wl-text { flex:1; min-width:0; }
+.wl-title { font-size:0.86em; font-weight:700; color:#7a5800; }
+.wl-sub { font-size:0.7em; color:#aa8800; }
+.wl-dot {
+  width:14px; height:14px; border-radius:50%; flex-shrink:0;
+  border:2px solid #c8a000; background:transparent; transition:all 0.15s;
+  display:flex; align-items:center; justify-content:center;
+}
+.wl-row.active .wl-dot { background:#e0b800; border-color:#e0b800; }
+.wl-row.active .wl-dot::after {
+  content:''; display:block; width:6px; height:3.5px;
+  border-left:1.5px solid white; border-bottom:1.5px solid white;
+  transform:rotate(-45deg) translateY(-1px);
+}
+
+/* ─ Sort bar ──────────────────────────────────── */
+.sort-bar {
+  flex-shrink:0;
+  display:flex; align-items:center; gap:5px; padding:5px 12px;
+  border-bottom:1px solid var(--border2); background:var(--surface2);
+}
+.sort-label { font-size:0.72em; color:var(--text-dim); white-space:nowrap; font-weight:600; }
+.sort-sel {
+  flex:1; background:white; border:1px solid var(--border); border-radius:4px;
+  color:var(--text); padding:2px 18px 2px 6px; font-size:0.72em; outline:none; cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 4px center;
+}
+.sort-sel:focus { border-color:var(--accent); }
+.dir-btn {
+  background:white; border:1px solid var(--border); border-radius:4px;
+  color:var(--text); cursor:pointer; padding:2px 7px; font-size:0.72em;
+  font-weight:700; transition:all 0.12s; white-space:nowrap;
+}
+.dir-btn:hover { background:var(--surface3); border-color:#999; }
+
+/* ─ Playlist select ───────────────────────────── */
+.pl-sel {
+  width:100%; background:white; border:1px solid var(--border); border-radius:var(--r);
+  color:var(--text); padding:7px 26px 7px 9px; font-size:0.88em; outline:none;
+  cursor:pointer; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 8px center;
+}
+.pl-sel:focus { border-color:var(--accent); }
+.pl-sel option { background:white; color:var(--text); }
+
+/* ─ Toolbar ───────────────────────────────────── */
+.toolbar {
+  flex-shrink:0;
+  display:flex; align-items:center; gap:6px; padding:6px 12px;
+  border-bottom:1px solid var(--border2); background:var(--surface);
+}
+.tb-btn {
+  font-size:0.75em; color:var(--text-muted); cursor:pointer;
+  background:none; border:1px solid var(--border); border-radius:4px;
+  padding:2px 7px; transition:all 0.15s; font-weight:500;
+}
+.tb-btn:hover { color:var(--text); border-color:#888; background:var(--surface2); }
+.cnt-total { font-size:0.72em; color:var(--text-dim); margin-left:auto; }
+.cnt-sel {
+  font-size:0.72em; padding:1px 7px; border-radius:10px;
+  background:var(--accent-bg); color:var(--accent); font-weight:700; display:none;
+}
+.cnt-sel.on { display:inline-block; }
+
+/* ─ Video list ────────────────────────────────── */
+.panel-body {
+  flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden;
+}
+.video-list { flex:1; min-height:0; overflow-y:auto; padding:5px; }
+
 .video-item {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 8px; border-radius: var(--r);
-  cursor: pointer; transition: background 0.1s;
-  border: 1px solid transparent;
-  margin-bottom: 2px;
+  display:flex; align-items:flex-start; gap:8px; padding:7px; border-radius:6px;
+  cursor:pointer; transition:background 0.1s; border:1px solid transparent; margin-bottom:1px;
 }
-.video-item:hover { background: var(--surface2); }
-.video-item.selected {
-  background: var(--accent-bg); border-color: rgba(255,0,0,0.2);
+.video-item:hover { background:var(--surface2); }
+.video-item.sel { background:var(--accent-bg); border-color:rgba(180,0,0,0.2); }
+.v-check {
+  width:14px; height:14px; flex-shrink:0; margin-top:2px;
+  border:1.5px solid var(--border); border-radius:3px;
+  background:white; transition:all 0.1s;
+  display:flex; align-items:center; justify-content:center;
 }
-.video-checkbox {
-  width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;
-  border: 1.5px solid var(--border); border-radius: 4px;
-  background: var(--surface2); transition: all 0.1s;
-  display: flex; align-items: center; justify-content: center;
+.video-item.sel .v-check { background:var(--accent); border-color:var(--accent); }
+.video-item.sel .v-check::after {
+  content:''; display:block; width:7px; height:4px;
+  border-left:1.5px solid white; border-bottom:1.5px solid white;
+  transform:rotate(-45deg) translateY(-1px);
 }
-.video-item.selected .video-checkbox {
-  background: var(--accent); border-color: var(--accent);
+.v-thumb { width:80px; height:45px; flex-shrink:0; border-radius:3px; object-fit:cover; background:var(--surface3); border:1px solid var(--border2); }
+.v-info { flex:1; min-width:0; }
+.v-title {
+  font-size:0.86em; line-height:1.35; color:var(--text);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
-.video-item.selected .video-checkbox::after {
-  content: ''; display: block;
-  width: 8px; height: 5px;
-  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
-  transform: rotate(-45deg) translateY(-1px);
-}
-.video-thumb {
-  width: 88px; height: 50px; flex-shrink: 0;
-  border-radius: 4px; object-fit: cover;
-  background: var(--surface3);
-}
-.video-info { flex: 1; min-width: 0; }
-.video-title {
-  font-size: 13px; line-height: 1.4; color: var(--text);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.video-channel {
-  font-size: 11px; color: var(--text-muted); margin-top: 3px;
-}
-.video-item.unavailable { opacity: 0.45; }
+.v-ch { font-size:0.75em; color:var(--text-muted); margin-top:2px; }
+.video-item.unavail { opacity:0.45; }
 
-/* ── Empty States ── */
-.empty-state {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  color: var(--text-dim); gap: 10px; padding: 2rem;
-  text-align: center;
-}
-.empty-state svg { opacity: 0.3; }
-.empty-state p { font-size: 13px; }
+/* dst preview */
+.dst-item { display:flex; align-items:center; gap:7px; padding:4px 7px; border-radius:5px; margin-bottom:2px; }
+.dst-thumb { width:50px; height:28px; flex-shrink:0; border-radius:3px; object-fit:cover; background:var(--surface3); border:1px solid var(--border2); }
+.dst-title { font-size:0.78em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* ── Middle Action Panel ── */
+/* ─ Empty / Loading states ────────────────────── */
+.empty {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; color:var(--text-dim); gap:9px; padding:2rem; text-align:center;
+}
+.empty svg { opacity:0.3; }
+.empty p { font-size:0.88em; }
+.loading { flex:1; display:flex; align-items:center; justify-content:center; }
+.spin {
+  width:22px; height:22px; border:2.5px solid var(--border); border-top-color:var(--accent);
+  border-radius:50%; animation:spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ─ Action panel ──────────────────────────────── */
 .action-panel {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 12px; padding: 1rem;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:7px; padding:0.85rem;
+  border-right:1px solid var(--border); background:var(--surface2);
+  min-height:0;
 }
-.action-divider { width: 1px; height: 40px; background: var(--border); }
-.action-btn-wrap { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.act-btns { width:100%; display:flex; flex-direction:column; gap:6px; }
+.act-sep { width:100%; height:1px; background:var(--border); margin:2px 0; }
+.act-btn {
+  width:100%; padding:9px 8px; border-radius:var(--r);
+  font-size:0.8em; font-weight:700; cursor:pointer; transition:all 0.15s;
+  border:1px solid var(--border); display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+.act-copy { background:var(--accent-bg); color:var(--accent); border-color:rgba(180,0,0,0.3); }
+.act-copy:hover:not(:disabled) { background:var(--accent-bgh); }
+.act-move { background:white; color:var(--text); }
+.act-move:hover:not(:disabled) { background:var(--surface3); }
+.act-del { background:var(--danger-bg); color:var(--danger); border-color:rgba(187,34,34,0.35); }
+.act-del:hover:not(:disabled) { background:var(--danger-bgh); }
+.act-btn:disabled { opacity:0.3; cursor:not-allowed; }
 
-/* ── Notification Toast ── */
+/* ─ Progress ──────────────────────────────────── */
+.prog-wrap { width:100%; display:none; }
+.prog-wrap.on { display:block; }
+.prog-track { height:3px; background:var(--surface3); border-radius:2px; margin-bottom:4px; border:1px solid var(--border2); }
+.prog-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s; width:0%; }
+.prog-lbl { font-size:0.7em; color:var(--text-dim); text-align:center; }
+
+/* ─ Sign-in screen ────────────────────────────── */
+#signin-screen { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 52px); }
+.signin-box { text-align:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-xl); padding:3rem 2.5rem; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+.signin-box h2 { font-size:1.4em; font-weight:700; margin-bottom:0.4rem; }
+.signin-box p { color:var(--text-muted); margin-bottom:2rem; font-size:0.93em; }
+
+/* ─ Toast ─────────────────────────────────────── */
 #toast {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  background: var(--surface3); color: var(--text);
-  padding: 10px 18px; border-radius: 20px; font-size: 13px;
-  border: 1px solid var(--border);
-  opacity: 0; transition: opacity 0.2s; pointer-events: none;
-  z-index: 9999; white-space: nowrap;
-  display: flex; align-items: center; gap: 8px;
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:var(--surface); color:var(--text); padding:9px 16px;
+  border-radius:18px; font-size:0.88em; border:1px solid var(--border);
+  opacity:0; transition:opacity 0.2s; pointer-events:none; z-index:9999;
+  white-space:nowrap; box-shadow:0 3px 12px rgba(0,0,0,0.15);
 }
-#toast.show { opacity: 1; }
-#toast.success { border-color: var(--success); color: var(--success); }
-#toast.error { border-color: #ff4444; color: #ff6666; }
+#toast.on { opacity:1; }
+#toast.ok { border-color:var(--success); color:var(--success); }
+#toast.err { border-color:var(--danger); color:var(--danger); }
 
-/* ── Progress Bar ── */
-.progress-wrap { width: 100%; display: none; }
-.progress-wrap.visible { display: block; }
-.progress-bar-bg {
-  height: 4px; background: var(--surface3); border-radius: 2px;
-  margin-bottom: 4px;
+/* ─ Confirm modal ─────────────────────────────── */
+#modal {
+  position:fixed; inset:0; background:rgba(0,0,0,0.45);
+  display:none; align-items:center; justify-content:center; z-index:2000;
 }
-.progress-bar-fill {
-  height: 100%; background: var(--accent); border-radius: 2px;
-  transition: width 0.3s; width: 0%;
+#modal.on { display:flex; }
+.modal-box {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:1.4rem 1.8rem; max-width:360px; width:92%;
+  box-shadow:0 8px 32px rgba(0,0,0,0.2);
 }
-.progress-label { font-size: 11px; color: var(--text-muted); text-align: center; }
-
-/* ── Loading ── */
-.spinner {
-  width: 20px; height: 20px;
-  border: 2px solid var(--border); border-top-color: var(--accent);
-  border-radius: 50%; animation: spin 0.7s linear infinite;
+.modal-box h3 { font-size:1.05em; font-weight:700; margin-bottom:0.4rem; }
+.modal-box p { color:var(--text-muted); font-size:0.9em; margin-bottom:1.1rem; line-height:1.6; }
+.modal-acts { display:flex; gap:8px; justify-content:flex-end; }
+.btn-cancel {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  padding:7px 14px; border-radius:var(--r); font-size:0.88em; cursor:pointer;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-state {
-  flex: 1; display: flex; align-items: center; justify-content: center;
+.btn-cancel:hover { background:var(--surface3); }
+.btn-ok-del {
+  background:var(--danger-bg); border:1px solid rgba(187,34,34,0.5); color:var(--danger);
+  padding:7px 14px; border-radius:var(--r); font-size:0.88em; cursor:pointer; font-weight:700;
 }
-
-/* ── Sign-in Screen ── */
-#signin-screen {
-  display: flex; align-items: center; justify-content: center;
-  min-height: calc(100vh - 56px);
-}
-.signin-box { text-align: center; }
-.signin-box h2 { font-size: 22px; font-weight: 600; margin-bottom: 0.5rem; }
-.signin-box p { color: var(--text-muted); margin-bottom: 2rem; font-size: 14px; }
-#g_id_signin { display: flex; justify-content: center; }
-
-/* ── Destination List (readonly preview) ── */
-.dest-video-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; border-radius: 6px;
-  margin-bottom: 2px;
-}
-.dest-thumb {
-  width: 56px; height: 32px; flex-shrink: 0;
-  border-radius: 3px; object-fit: cover; background: var(--surface3);
-}
-.dest-title {
-  font-size: 12px; color: var(--text-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  main { grid-template-columns: 1fr; grid-template-rows: 1fr 80px 1fr; }
-  .action-panel { flex-direction: row; height: 80px; padding: 0.5rem 1rem; }
-  .action-divider { width: 40px; height: 1px; }
-  .action-btn-wrap { flex-direction: row; }
-}
+.btn-ok-del:hover { background:var(--danger-bgh); }
 </style>
 </head>
 <body>
 
 <!-- Setup Overlay -->
-<div id="setup-overlay">
+<div id="setup-overlay" style="display:none">
   <div class="setup-box">
     <div class="setup-logo">
-      <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-        <rect width="32" height="22" rx="5" fill="#FF0000"/>
-        <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
-      </svg>
-      <span>播放清單管理器</span>
+      <svg width="30" height="21" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="5" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
+      <span>播放清單管理器 (v0.13)</span>
     </div>
-    <h2>首次設定</h2>
-    <p>需要 Google OAuth Client ID 才能存取你的 YouTube 資料。<br>設定只需 5 分鐘，且完全免費。</p>
+    <h2>Google OAuth 設定</h2>
+    <p>需要 Google OAuth Client ID 才能存取 YouTube 資料。已預填預設值，可直接繼續或換成你自己的。</p>
     <div class="setup-steps">
-      <strong style="color:var(--text); display:block; margin-bottom:4px;">設定步驟：</strong>
+      <strong style="color:var(--text);display:block;margin-bottom:4px">如需更換 Client ID：</strong>
       1. 前往 <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a><br>
-      2. 建立新專案（或使用現有專案）<br>
-      3. 搜尋並啟用 <code>YouTube Data API v3</code><br>
-      4. 前往「憑證」→「建立憑證」→「OAuth 2用戶端ID」<br>
-      5. 類型選「<strong style="color:var(--text)">網頁應用程式</strong>」<br>
-      6. 「已授權的 JavaScript 來源」加入此網頁的網址<br>
-      7. 複製 Client ID 貼入下方
+      2. 建立新專案 → 啟用 <code>YouTube Data API v3</code><br>
+      3. 憑證 → 建立 OAuth 2 用戶端 ID（網頁應用程式）<br>
+      4. 「已授權的 JavaScript 來源」加入此頁面網址<br>
+      5. 複製新的 Client ID 貼入下方
     </div>
     <div class="input-group">
       <label>Google OAuth Client ID</label>
-      <input type="text" id="client-id-input" placeholder="xxxxxxxxx.apps.googleusercontent.com" />
+      <input type="text" id="cid-input" />
     </div>
-    <button class="btn btn-primary" onclick="saveClientId()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+    <button class="btn btn-primary" onclick="saveAndInit()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
       儲存並繼續
     </button>
   </div>
@@ -436,25 +383,22 @@ main {
 <!-- Header -->
 <header>
   <div class="header-logo">
-    <svg width="26" height="18" viewBox="0 0 32 22" fill="none">
-      <rect width="32" height="22" rx="4" fill="#FF0000"/>
-      <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
-    </svg>
-    <span>播放清單管理器</span>
+    <svg width="24" height="17" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="4" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
+    <span>播放清單管理器 (v0.13)</span>
   </div>
   <div class="header-spacer"></div>
   <div class="font-ctrl" title="調整字體大小">
-    <button class="font-btn" onclick="adjustFont(-1)" title="縮小">A−</button>
-    <span class="font-size-label" id="font-label">14</span>
-    <button class="font-btn" onclick="adjustFont(1)" title="放大">A+</button>
+    <button class="font-btn" onclick="adjFont(-1)" title="縮小字體">A−</button>
+    <span class="font-size-label" id="flbl">14</span>
+    <button class="font-btn" onclick="adjFont(1)"  title="放大字體">A+</button>
   </div>
-  <div class="user-info" id="user-info" style="display:none">
-    <img id="user-avatar" class="avatar" src="" alt="" onerror="this.style.display='none'">
-    <span id="user-name"></span>
+  <div class="user-info" id="uinfo" style="display:none">
+    <img id="uavatar" class="avatar" src="" alt="" onerror="this.style.display='none'">
+    <span id="uname"></span>
     <button class="btn-signout" onclick="signOut()">登出</button>
   </div>
-  <button class="btn-ghost btn" id="settings-btn" onclick="showSetup()" style="font-size:12px; padding:6px 10px; display:none">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  <button class="btn btn-ghost" id="cfg-btn" onclick="showSetup()" style="display:none">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     設定
   </button>
 </header>
@@ -462,549 +406,504 @@ main {
 <!-- Sign-in Screen -->
 <div id="signin-screen" style="display:none">
   <div class="signin-box">
-    <svg width="64" height="44" viewBox="0 0 32 22" fill="none" style="margin-bottom:1.5rem">
-      <rect width="32" height="22" rx="4" fill="#FF0000"/>
-      <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
-    </svg>
+    <svg width="56" height="38" viewBox="0 0 32 22" fill="none" style="margin-bottom:1.4rem"><rect width="32" height="22" rx="4" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
     <h2>YouTube 播放清單管理器</h2>
-    <p>登入以管理你的播放清單</p>
-    <div id="g_id_signin"></div>
+    <p>登入 Google 帳號以管理你的 YouTube 播放清單</p>
+    <div id="signin-wrap"></div>
   </div>
 </div>
 
 <!-- Main App -->
-<main id="app" style="display:none">
+<div id="app" style="display:none; display:grid; grid-template-columns:1fr 140px 1fr; height:calc(100vh - 52px); overflow:hidden;">
 
-  <!-- Source Panel -->
-  <div class="panel" id="source-panel">
+  <!-- ── Source Panel ── -->
+  <div class="panel">
+    <!-- Watch Later -->
+    <div class="wl-row" id="src-wl" onclick="pickWL('src')">
+      <div class="wl-icon">⭐</div>
+      <div class="wl-text">
+        <div class="wl-title">稍後觀看</div>
+        <div class="wl-sub" id="src-wl-sub">點擊載入</div>
+      </div>
+      <div class="wl-dot" id="src-wl-dot"></div>
+    </div>
+    <!-- Playlist select -->
     <div class="panel-header">
       <label>來源播放清單</label>
-      <select class="playlist-select" id="source-select" onchange="loadSourceVideos()">
-        <option value="">— 選擇播放清單 —</option>
+      <select class="pl-sel" id="src-sel" onchange="onSrc()">
+        <option value="">— 選擇其他播放清單 —</option>
       </select>
     </div>
+    <!-- Sort bar -->
     <div class="sort-bar">
-      <span>排序</span>
-      <select class="sort-select" id="source-sort-by" onchange="repopulateSelects()">
-        <option value="watchlater">名稱</option>
-        <option value="title">名稱（忽略稍後）</option>
-        <option value="publishedAt">建立日期</option>
-        <option value="count">影片數量</option>
+      <span class="sort-label">排序</span>
+      <select class="sort-sel" id="src-sort" onchange="rePop()">
+        <option value="title">名稱</option>
+        <option value="pub">建立日期</option>
+        <option value="count">影片數</option>
       </select>
-      <button class="dir-btn" id="source-dir-btn" onclick="toggleSortDir('source')" title="切換升冪/降冪">↑ 升</button>
+      <button class="dir-btn" id="src-dir" onclick="flipDir('src')">↑升</button>
     </div>
-    <div class="panel-toolbar" id="source-toolbar" style="display:none">
-      <button class="select-all-btn" onclick="toggleSelectAll()">全選</button>
-      <button class="select-all-btn" onclick="clearSelection()">清除</button>
-      <span class="count-badge" id="total-count"></span>
-      <span class="selected-count" id="selected-count">0 部</span>
+    <!-- Toolbar -->
+    <div class="toolbar" id="src-bar" style="display:none">
+      <button class="tb-btn" onclick="togAll()">全選</button>
+      <button class="tb-btn" onclick="clearSel()">清除</button>
+      <span class="cnt-total" id="cnt-total"></span>
+      <span class="cnt-sel" id="cnt-sel"></span>
     </div>
-    <div id="source-content">
-      <div class="empty-state">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+    <!-- Video list body -->
+    <div class="panel-body" id="src-body">
+      <div class="empty">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
         <p>選擇來源播放清單</p>
       </div>
     </div>
   </div>
 
-  <!-- Action Panel -->
+  <!-- ── Action Panel ── -->
   <div class="action-panel">
-    <div class="action-btn-wrap">
-      <button class="btn-action btn-copy" id="btn-copy" onclick="doAction('copy')" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 4px; display:block"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    <div class="act-btns">
+      <button class="act-btn act-copy" id="btn-cp" onclick="doAct('copy')" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         複製
       </button>
-      <button class="btn-action btn-move" id="btn-move" onclick="doAction('move')" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 4px; display:block"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      <button class="act-btn act-move" id="btn-mv" onclick="doAct('move')" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         移動
       </button>
+      <div class="act-sep"></div>
+      <button class="act-btn act-del" id="btn-dl" onclick="askDel()" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        刪除
+      </button>
     </div>
-    <div class="progress-wrap" id="progress-wrap">
-      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
-      <div class="progress-label" id="progress-label"></div>
+    <div class="prog-wrap" id="prog">
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="prog-lbl" id="prog-lbl"></div>
     </div>
   </div>
 
-  <!-- Destination Panel -->
+  <!-- ── Destination Panel ── -->
   <div class="panel">
+    <!-- Watch Later -->
+    <div class="wl-row" id="dst-wl" onclick="pickWL('dst')">
+      <div class="wl-icon">⭐</div>
+      <div class="wl-text">
+        <div class="wl-title">稍後觀看</div>
+        <div class="wl-sub" id="dst-wl-sub">點擊設為目的地</div>
+      </div>
+      <div class="wl-dot" id="dst-wl-dot"></div>
+    </div>
+    <!-- Playlist select -->
     <div class="panel-header">
       <label>目的地播放清單</label>
-      <select class="playlist-select" id="dest-select" onchange="loadDestVideos()">
-        <option value="">— 選擇播放清單 —</option>
+      <select class="pl-sel" id="dst-sel" onchange="onDst()">
+        <option value="">— 選擇其他播放清單 —</option>
       </select>
     </div>
+    <!-- Sort bar -->
     <div class="sort-bar">
-      <span>排序</span>
-      <select class="sort-select" id="dest-sort-by" onchange="repopulateSelects()">
-        <option value="watchlater">名稱</option>
-        <option value="title">名稱（忽略稍後）</option>
-        <option value="publishedAt">建立日期</option>
-        <option value="count">影片數量</option>
+      <span class="sort-label">排序</span>
+      <select class="sort-sel" id="dst-sort" onchange="rePop()">
+        <option value="title">名稱</option>
+        <option value="pub">建立日期</option>
+        <option value="count">影片數</option>
       </select>
-      <button class="dir-btn" id="dest-dir-btn" onclick="toggleSortDir('dest')" title="切換升冪/降冪">↑ 升</button>
+      <button class="dir-btn" id="dst-dir" onclick="flipDir('dst')">↑升</button>
     </div>
-    <div id="dest-content">
-      <div class="empty-state">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <!-- Video list body -->
+    <div class="panel-body" id="dst-body">
+      <div class="empty">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <p>選擇目的地播放清單</p>
       </div>
     </div>
   </div>
+</div>
 
-</main>
+<!-- Confirm Modal -->
+<div id="modal">
+  <div class="modal-box">
+    <h3>確認刪除</h3>
+    <p id="modal-msg"></p>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-ok-del" id="modal-ok">確認刪除</button>
+    </div>
+  </div>
+</div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
 <script>
-const SCOPES = 'https://www.googleapis.com/auth/youtube';
-let CLIENT_ID = '';
-let accessToken = '';
-let allPlaylists = [];
-let sourceVideos = [];
-let destVideos = [];
+// ── Config ──────────────────────────────────────────
+const DEFAULT_CID = '16030680939-367is36am4qosbp4q6obk7rpb56ljek4.apps.googleusercontent.com';
+const SCOPE = 'https://www.googleapis.com/auth/youtube';
+const WL = 'WL';
 
-// Sort state per panel
-const sortState = {
-  source: { by: 'watchlater', dir: 'asc' },
-  dest:   { by: 'watchlater', dir: 'asc' }
-};
+let cid = localStorage.getItem('yt_cid') || DEFAULT_CID;
+let tok = '', playlists = [], srcVids = [], dstVids = [];
+let srcId = '', dstId = '';
+const sortDir = { src: 'asc', dst: 'asc' };
 
-// ─── Font Size ───────────────────────────────────────
-const FONT_MIN = 11, FONT_MAX = 20;
-let currentFontSize = parseInt(localStorage.getItem('yt_font_size') || '14');
-
+// ── Font size (直接設定 body.style.fontSize) ─────────
+let fs = parseInt(localStorage.getItem('yt_fs') || '14');
 function applyFont() {
-  document.documentElement.style.setProperty('--app-font-size', currentFontSize + 'px');
-  document.getElementById('font-label').textContent = currentFontSize;
+  document.body.style.fontSize = fs + 'px';
+  document.getElementById('flbl').textContent = fs;
 }
-function adjustFont(delta) {
-  currentFontSize = Math.min(FONT_MAX, Math.max(FONT_MIN, currentFontSize + delta));
-  localStorage.setItem('yt_font_size', currentFontSize);
+function adjFont(d) {
+  fs = Math.max(11, Math.min(20, fs + d));
+  localStorage.setItem('yt_fs', fs);
   applyFont();
 }
 
-// ─── Sort Helpers ────────────────────────────────────
-function sortedPlaylists(panel) {
-  const { by, dir } = sortState[panel];
-  const watchLater = allPlaylists.find(p => p.id === 'WL');
-  const rest = allPlaylists.filter(p => p.id !== 'WL');
-
-  rest.sort((a, b) => {
-    let va, vb;
-    if (by === 'title' || by === 'watchlater') {
-      va = a.title.toLowerCase(); vb = b.title.toLowerCase();
-      return dir === 'asc' ? va.localeCompare(vb, 'zh-Hant') : vb.localeCompare(va, 'zh-Hant');
-    }
-    if (by === 'publishedAt') {
-      va = a.publishedAt || ''; vb = b.publishedAt || '';
-      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-    }
-    if (by === 'count') {
-      va = a.count; vb = b.count;
-      return dir === 'asc' ? va - vb : vb - va;
-    }
-    return 0;
+// ── Sort ────────────────────────────────────────────
+function sorted(panel) {
+  const by = document.getElementById(panel + '-sort').value;
+  const asc = sortDir[panel] === 'asc';
+  return [...playlists].sort((a,b) => {
+    let r = by === 'title' ? a.title.localeCompare(b.title, 'zh-Hant')
+          : by === 'pub'   ? (a.pub||'').localeCompare(b.pub||'')
+          :                   a.count - b.count;
+    return asc ? r : -r;
   });
-
-  // watchlater: always first regardless of sort
-  return watchLater ? [watchLater, ...rest] : rest;
+}
+function flipDir(p) {
+  sortDir[p] = sortDir[p] === 'asc' ? 'desc' : 'asc';
+  document.getElementById(p + '-dir').textContent = sortDir[p] === 'asc' ? '↑升' : '↓降';
+  rePop();
+}
+function rePop() {
+  const sv = document.getElementById('src-sel').value;
+  const dv = document.getElementById('dst-sel').value;
+  fillSel('src-sel', sorted('src'));
+  fillSel('dst-sel', sorted('dst'));
+  document.getElementById('src-sel').value = sv;
+  document.getElementById('dst-sel').value = dv;
+}
+function fillSel(id, list) {
+  document.getElementById(id).innerHTML =
+    '<option value="">— 選擇其他播放清單 —</option>' +
+    list.map(p => `<option value="${p.id}">${esc(p.title)} (${p.count})</option>`).join('');
 }
 
-function toggleSortDir(panel) {
-  sortState[panel].dir = sortState[panel].dir === 'asc' ? 'desc' : 'asc';
-  const btn = document.getElementById(panel + '-dir-btn');
-  btn.textContent = sortState[panel].dir === 'asc' ? '↑ 升' : '↓ 降';
-  repopulateSelects();
+// ── Watch Later ─────────────────────────────────────
+async function pickWL(p) {
+  if (p === 'src') {
+    document.getElementById('src-sel').value = '';
+    wlActive('src', true); wlActive('dst', dstId === WL);
+    srcId = WL;
+    await loadSrc(WL);
+  } else {
+    document.getElementById('dst-sel').value = '';
+    wlActive('dst', true); wlActive('src', srcId === WL);
+    dstId = WL;
+    await loadDst(WL);
+  }
+  updBtns();
+}
+function wlActive(p, on) {
+  document.getElementById(p + '-wl').classList.toggle('active', on);
+}
+function onSrc() {
+  const v = document.getElementById('src-sel').value;
+  wlActive('src', false); srcId = v;
+  if (v) loadSrc(v);
+  else { setSrc(emptyEl('選擇來源播放清單')); hideBar(); }
+  updBtns();
+}
+function onDst() {
+  const v = document.getElementById('dst-sel').value;
+  wlActive('dst', false); dstId = v;
+  if (v) loadDst(v);
+  else setDst(emptyEl('選擇目的地播放清單'));
+  updBtns();
 }
 
-function repopulateSelects() {
-  // Sync sort-by state from selects
-  sortState.source.by = document.getElementById('source-sort-by').value;
-  sortState.dest.by   = document.getElementById('dest-sort-by').value;
-
-  const prevSrc  = document.getElementById('source-select').value;
-  const prevDest = document.getElementById('dest-select').value;
-
-  populateSelect('source-select', sortedPlaylists('source'));
-  populateSelect('dest-select',   sortedPlaylists('dest'));
-
-  // Restore selection
-  document.getElementById('source-select').value = prevSrc;
-  document.getElementById('dest-select').value   = prevDest;
-}
-
-function populateSelect(selectId, list) {
-  const placeholder = '<option value="">— 選擇播放清單 —</option>';
-  document.getElementById(selectId).innerHTML = placeholder +
-    list.map(p => {
-      const wl = p.id === 'WL' ? '<span class="watch-later-badge">稍後</span>' : '';
-      return `<option value="${p.id}"${p.id === 'WL' ? ' data-wl="1"' : ''}>${p.id === 'WL' ? '⭐ ' : ''}${escHtml(p.title)} (${p.count})</option>`;
-    }).join('');
-}
-
-// ─── Init ───────────────────────────────────────────
+// ── Init ────────────────────────────────────────────
 window.onload = () => {
   applyFont();
-  CLIENT_ID = localStorage.getItem('yt_client_id') || '';
-  if (CLIENT_ID) {
-    document.getElementById('setup-overlay').style.display = 'none';
-    document.getElementById('settings-btn').style.display = '';
-    initGIS();
-  } else {
-    document.getElementById('client-id-input').value = '';
-  }
+  // Show app directly, setup overlay only on demand
+  document.getElementById('cfg-btn').style.display = '';
+  initGIS();
 };
 
-function saveClientId() {
-  const val = document.getElementById('client-id-input').value.trim();
-  if (!val || !val.includes('.apps.googleusercontent.com')) {
-    showToast('請輸入有效的 Client ID', 'error'); return;
-  }
-  CLIENT_ID = val;
-  localStorage.setItem('yt_client_id', CLIENT_ID);
+function showSetup() {
+  document.getElementById('cid-input').value = cid;
+  document.getElementById('setup-overlay').style.display = 'flex';
+}
+function saveAndInit() {
+  const v = document.getElementById('cid-input').value.trim();
+  if (!v) { toast('請輸入 Client ID', 'err'); return; }
+  cid = v; localStorage.setItem('yt_cid', v);
   document.getElementById('setup-overlay').style.display = 'none';
-  document.getElementById('settings-btn').style.display = '';
   initGIS();
 }
 
-function showSetup() {
-  document.getElementById('client-id-input').value = CLIENT_ID;
-  document.getElementById('setup-overlay').style.display = 'flex';
-}
-
-// ─── Google Identity Services ────────────────────────
+// ── Google Identity Services ─────────────────────────
 function initGIS() {
-  if (typeof google === 'undefined') {
-    setTimeout(initGIS, 300); return;
-  }
-  // Try silent token first
-  const savedToken = sessionStorage.getItem('yt_token');
-  if (savedToken) {
-    accessToken = savedToken;
-    onSignedIn();
-    return;
-  }
-  showSigninScreen();
+  if (typeof google === 'undefined') { setTimeout(initGIS, 300); return; }
+  const saved = sessionStorage.getItem('yt_tok');
+  if (saved) { tok = saved; onSignedIn(); return; }
+  showSignin();
 }
-
-function showSigninScreen() {
+function showSignin() {
   document.getElementById('signin-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
-  renderSigninButton();
-}
-
-function renderSigninButton() {
-  google.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: handleIdToken,
-    auto_select: false,
-  });
-  google.accounts.id.renderButton(
-    document.getElementById('g_id_signin'),
-    { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular', width: 240 }
-  );
-  // Also use token client for OAuth scopes
-  window._tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: (resp) => {
-      if (resp.error) { showToast('登入失敗：' + resp.error, 'error'); return; }
-      accessToken = resp.access_token;
-      sessionStorage.setItem('yt_token', accessToken);
-      onSignedIn();
-    }
-  });
-  // Render a custom sign-in button
-  document.getElementById('g_id_signin').innerHTML =
-    `<button class="btn btn-primary" style="width:240px" onclick="window._tokenClient.requestAccessToken()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+  if (!window._tc) {
+    window._tc = google.accounts.oauth2.initTokenClient({
+      client_id: cid, scope: SCOPE,
+      callback: r => {
+        if (r.error) { toast('登入失敗：' + r.error, 'err'); return; }
+        tok = r.access_token;
+        sessionStorage.setItem('yt_tok', tok);
+        onSignedIn();
+      }
+    });
+  }
+  document.getElementById('signin-wrap').innerHTML =
+    `<button class="btn btn-primary" style="width:220px" onclick="window._tc.requestAccessToken()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
       使用 Google 登入
     </button>`;
 }
-
-function handleIdToken(resp) {
-  // Parse JWT to get user info (we still need OAuth token for API)
-  window._tokenClient.requestAccessToken();
-}
-
 async function onSignedIn() {
   document.getElementById('signin-screen').style.display = 'none';
+  document.getElementById('app').style.removeProperty('display');
   document.getElementById('app').style.display = 'grid';
-
-  // Fetch user profile
   try {
-    const r = await ytFetch('https://www.googleapis.com/oauth2/v3/userinfo');
+    const r = await api('https://www.googleapis.com/oauth2/v3/userinfo');
     const u = await r.json();
-    document.getElementById('user-info').style.display = 'flex';
-    document.getElementById('user-name').textContent = u.name || u.email;
-    document.getElementById('user-avatar').src = u.picture || '';
+    document.getElementById('uinfo').style.display = 'flex';
+    document.getElementById('uname').textContent = u.name || u.email;
+    document.getElementById('uavatar').src = u.picture || '';
   } catch(e) {}
-
-  await loadPlaylists();
+  loadPlaylists();
 }
-
 function signOut() {
-  accessToken = '';
-  sessionStorage.removeItem('yt_token');
-  document.getElementById('user-info').style.display = 'none';
+  tok = ''; sessionStorage.removeItem('yt_tok');
+  document.getElementById('uinfo').style.display = 'none';
   document.getElementById('app').style.display = 'none';
-  sourceVideos = []; destVideos = []; allPlaylists = [];
-  showSigninScreen();
+  playlists = []; srcVids = []; dstVids = []; srcId = ''; dstId = '';
+  wlActive('src', false); wlActive('dst', false);
+  window._tc = null;
+  showSignin();
 }
 
-// ─── API Helpers ─────────────────────────────────────
-function ytFetch(url, opts = {}) {
-  return fetch(url, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
-  });
+// ── API helpers ─────────────────────────────────────
+function api(url, opts = {}) {
+  return fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', ...(opts.headers||{}) } });
 }
-
-async function ytGetAll(baseUrl) {
-  let items = [], pageToken = '';
+async function apiAll(url) {
+  let items = [], pt = '';
   do {
-    const sep = baseUrl.includes('?') ? '&' : '?';
-    const r = await ytFetch(baseUrl + sep + (pageToken ? 'pageToken=' + pageToken : ''));
+    const sep = url.includes('?') ? '&' : '?';
+    const r = await api(url + sep + (pt ? 'pageToken=' + pt : ''));
     const d = await r.json();
     if (d.error) throw new Error(d.error.message);
     items = items.concat(d.items || []);
-    pageToken = d.nextPageToken || '';
-  } while (pageToken);
+    pt = d.nextPageToken || '';
+  } while (pt);
   return items;
 }
 
-// ─── Playlists ───────────────────────────────────────
+// ── Playlists ───────────────────────────────────────
 async function loadPlaylists() {
-  setSourceContent('<div class="loading-state"><div class="spinner"></div></div>');
+  setSrc(loadEl());
   try {
-    const items = await ytGetAll(
-      'https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50'
-    );
-    allPlaylists = items.map(i => ({
-      id: i.id,
-      title: i.snippet.title,
-      count: i.contentDetails.itemCount,
-      publishedAt: i.snippet.publishedAt || ''
+    const items = await apiAll('https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50');
+    playlists = items.map(i => ({
+      id: i.id, title: i.snippet.title,
+      count: i.contentDetails.itemCount, pub: i.snippet.publishedAt || ''
     }));
-    repopulateSelects();
-    setSourceContent(emptyState('選擇來源播放清單'));
+    rePop();
+    if (!srcId) setSrc(emptyEl('選擇來源播放清單'));
   } catch(e) {
-    if (e.message && e.message.includes('invalid_token')) {
-      sessionStorage.removeItem('yt_token');
-      signOut();
-    } else {
-      showToast('載入播放清單失敗：' + e.message, 'error');
-    }
+    if (e.message?.includes('invalid_token')) { sessionStorage.removeItem('yt_tok'); signOut(); }
+    else toast('載入播放清單失敗：' + e.message, 'err');
   }
 }
 
-// (populateSelects replaced by repopulateSelects above)
-
-// ─── Source Videos ───────────────────────────────────
-async function loadSourceVideos() {
-  const id = document.getElementById('source-select').value;
-  if (!id) { setSourceContent(emptyState('選擇來源播放清單')); hideToolbar(); return; }
-  setSourceContent('<div class="loading-state"><div class="spinner"></div></div>');
-  hideToolbar();
+// ── Source Videos ────────────────────────────────────
+async function loadSrc(pid) {
+  setSrc(loadEl()); hideBar();
   try {
-    const items = await ytGetAll(
-      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${id}&maxResults=50`
-    );
-    sourceVideos = items.map(i => ({
+    const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${pid}&maxResults=50`);
+    srcVids = items.map(i => ({
       id: i.id,
-      videoId: i.snippet.resourceId.videoId,
+      vid: i.snippet.resourceId.videoId,
       title: i.snippet.title || '（無法取得標題）',
-      channel: i.snippet.videoOwnerChannelTitle || '',
+      ch: i.snippet.videoOwnerChannelTitle || '',
       thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
-      selected: false,
-      unavailable: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
+      sel: false,
+      na: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
     }));
-    renderSourceVideos();
-    showToolbar();
-    updateCounts();
+    renderSrc(); showBar(); updCounts();
+    if (pid === WL) document.getElementById('src-wl-sub').textContent = items.length + ' 部影片';
   } catch(e) {
-    setSourceContent(emptyState('載入失敗：' + e.message));
+    const msg = e.message?.includes('403') ? 'YouTube 限制：無法透過 API 讀取稍後觀看清單' : '載入失敗：' + e.message;
+    setSrc(emptyEl(msg));
+    if (pid === WL) document.getElementById('src-wl-sub').textContent = 'API 限制';
   }
 }
-
-function renderSourceVideos() {
-  if (!sourceVideos.length) {
-    setSourceContent(emptyState('此播放清單是空的'));
-    return;
-  }
-  const html = '<div class="video-list" id="video-list">' +
-    sourceVideos.map((v, i) =>
-      `<div class="video-item${v.selected ? ' selected' : ''}${v.unavailable ? ' unavailable' : ''}"
-            onclick="toggleVideo(${i})">
-        <div class="video-checkbox"></div>
-        <img class="video-thumb" src="${v.thumb || ''}" alt="" loading="lazy" onerror="this.src=''">
-        <div class="video-info">
-          <div class="video-title">${escHtml(v.title)}</div>
-          <div class="video-channel">${escHtml(v.channel)}</div>
+function renderSrc() {
+  if (!srcVids.length) { setSrc(emptyEl('此播放清單是空的')); return; }
+  setSrc(
+    '<div class="video-list">' +
+    srcVids.map((v,i) =>
+      `<div class="video-item${v.sel?' sel':''}${v.na?' unavail':''}" onclick="togV(${i})">
+        <div class="v-check"></div>
+        <img class="v-thumb" src="${v.thumb}" alt="" loading="lazy" onerror="this.src=''">
+        <div class="v-info">
+          <div class="v-title">${esc(v.title)}</div>
+          <div class="v-ch">${esc(v.ch)}</div>
         </div>
       </div>`
-    ).join('') + '</div>';
-  setSourceContent(html);
+    ).join('') + '</div>'
+  );
+}
+function togV(i) {
+  srcVids[i].sel = !srcVids[i].sel;
+  const el = document.querySelectorAll('.video-item')[i];
+  if (el) el.classList.toggle('sel', srcVids[i].sel);
+  updCounts();
+}
+function togAll() {
+  const any = srcVids.some(v => v.sel);
+  srcVids.forEach(v => v.sel = !any);
+  renderSrc(); updCounts();
+}
+function clearSel() { srcVids.forEach(v => v.sel = false); renderSrc(); updCounts(); }
+function updCounts() {
+  const sel = srcVids.filter(v => v.sel).length;
+  document.getElementById('cnt-total').textContent = srcVids.length + ' 部影片';
+  const b = document.getElementById('cnt-sel');
+  b.textContent = sel + ' 部已選'; b.classList.toggle('on', sel > 0);
+  updBtns();
+}
+function updBtns() {
+  const sel = srcVids.filter(v => v.sel).length;
+  document.getElementById('btn-cp').disabled = !(sel && dstId);
+  document.getElementById('btn-mv').disabled = !(sel && dstId && srcId !== dstId);
+  document.getElementById('btn-dl').disabled = !(sel && srcId);
 }
 
-function toggleVideo(i) {
-  sourceVideos[i].selected = !sourceVideos[i].selected;
-  const items = document.querySelectorAll('.video-item');
-  if (items[i]) {
-    items[i].classList.toggle('selected', sourceVideos[i].selected);
-  }
-  updateCounts();
-}
-
-function toggleSelectAll() {
-  const anySelected = sourceVideos.some(v => v.selected);
-  sourceVideos.forEach(v => v.selected = !anySelected);
-  renderSourceVideos();
-  updateCounts();
-}
-
-function clearSelection() {
-  sourceVideos.forEach(v => v.selected = false);
-  renderSourceVideos();
-  updateCounts();
-}
-
-function updateCounts() {
-  const sel = sourceVideos.filter(v => v.selected).length;
-  const total = sourceVideos.length;
-  document.getElementById('total-count').textContent = total + ' 部影片';
-  const badge = document.getElementById('selected-count');
-  badge.textContent = sel + ' 部已選';
-  badge.classList.toggle('visible', sel > 0);
-  const hasDest = !!document.getElementById('dest-select').value;
-  document.getElementById('btn-copy').disabled = !(sel > 0 && hasDest);
-  document.getElementById('btn-move').disabled = !(sel > 0 && hasDest);
-}
-
-// ─── Destination Videos ──────────────────────────────
-async function loadDestVideos() {
-  const id = document.getElementById('dest-select').value;
-  if (!id) { setDestContent(emptyState('選擇目的地播放清單')); updateCounts(); return; }
-  setDestContent('<div class="loading-state"><div class="spinner"></div></div>');
-  updateCounts();
+// ── Destination Videos ────────────────────────────────
+async function loadDst(pid) {
+  setDst(loadEl());
   try {
-    const items = await ytGetAll(
-      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${id}&maxResults=50`
-    );
-    destVideos = items.map(i => ({
-      title: i.snippet.title,
-      thumb: (i.snippet.thumbnails?.default)?.url || ''
-    }));
-    renderDestVideos();
+    const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${pid}&maxResults=50`);
+    dstVids = items.map(i => ({ title: i.snippet.title, thumb: (i.snippet.thumbnails?.default)?.url || '' }));
+    if (pid === WL) document.getElementById('dst-wl-sub').textContent = items.length + ' 部影片';
+    renderDst();
   } catch(e) {
-    setDestContent(emptyState('載入失敗'));
+    setDst(emptyEl(e.message?.includes('403') ? '稍後觀看已設為目的地（無法預覽）' : '載入失敗'));
+    if (pid === WL) document.getElementById('dst-wl-sub').textContent = '已選取';
   }
-  updateCounts();
 }
-
-function renderDestVideos() {
-  if (!destVideos.length) {
-    setDestContent(emptyState('目的地播放清單是空的'));
-    return;
-  }
-  const html = '<div class="video-list">' +
-    destVideos.map(v =>
-      `<div class="dest-video-item">
-        <img class="dest-thumb" src="${v.thumb}" alt="" loading="lazy" onerror="this.src=''">
-        <div class="dest-title">${escHtml(v.title)}</div>
+function renderDst() {
+  if (!dstVids.length) { setDst(emptyEl('目的地播放清單是空的')); return; }
+  setDst(
+    '<div class="video-list">' +
+    dstVids.map(v =>
+      `<div class="dst-item">
+        <img class="dst-thumb" src="${v.thumb}" alt="" loading="lazy" onerror="this.src=''">
+        <div class="dst-title">${esc(v.title)}</div>
       </div>`
-    ).join('') + '</div>';
-  setDestContent(html);
+    ).join('') + '</div>'
+  );
 }
 
-// ─── Copy / Move ─────────────────────────────────────
-async function doAction(type) {
-  const destId = document.getElementById('dest-select').value;
-  const srcId  = document.getElementById('source-select').value;
-  const selected = sourceVideos.filter(v => v.selected && !v.unavailable);
-  if (!selected.length) { showToast('請先選擇影片', 'error'); return; }
-  if (!destId) { showToast('請選擇目的地播放清單', 'error'); return; }
-  if (type === 'move' && srcId === destId) { showToast('來源和目的地不能相同', 'error'); return; }
-
-  setBtnsDisabled(true);
-  showProgress(0, `正在${type === 'copy' ? '複製' : '移動'} 0/${selected.length}`);
-
-  let done = 0, failed = 0;
-  for (const video of selected) {
+// ── Copy / Move ─────────────────────────────────────
+async function doAct(type) {
+  const sel = srcVids.filter(v => v.sel && !v.na);
+  if (!sel.length) { toast('請先選擇影片', 'err'); return; }
+  if (!dstId)       { toast('請選擇目的地播放清單', 'err'); return; }
+  if (type === 'move' && srcId === dstId) { toast('來源和目的地不能相同', 'err'); return; }
+  disAll(true);
+  showProg(0, `正在${type==='copy'?'複製':'移動'} 0/${sel.length}`);
+  let ok = 0, fail = 0;
+  for (const v of sel) {
     try {
-      // Add to destination
-      const body = {
-        snippet: {
-          playlistId: destId,
-          resourceId: { kind: 'youtube#video', videoId: video.videoId }
-        }
-      };
-      const r = await ytFetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
-        method: 'POST', body: JSON.stringify(body)
-      });
+      const body = { snippet: { playlistId: dstId, resourceId: { kind: 'youtube#video', videoId: v.vid } } };
+      const r = await api('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', { method: 'POST', body: JSON.stringify(body) });
       const d = await r.json();
-      if (d.error) { failed++; console.warn(d.error.message); }
+      if (d.error) fail++;
       else {
-        // If moving, delete from source
-        if (type === 'move') {
-          await ytFetch(`https://www.googleapis.com/youtube/v3/playlistItems?id=${video.id}`, { method: 'DELETE' });
-        }
-        done++;
+        if (type === 'move') await api(`https://www.googleapis.com/youtube/v3/playlistItems?id=${v.id}`, { method: 'DELETE' });
+        ok++;
       }
-    } catch(e) { failed++; }
-    showProgress(Math.round((done + failed) / selected.length * 100),
-      `${type === 'copy' ? '複製' : '移動'} ${done + failed}/${selected.length}`);
+    } catch(e) { fail++; }
+    showProg(Math.round((ok+fail)/sel.length*100), `${type==='copy'?'複製':'移動'} ${ok+fail}/${sel.length}`);
   }
-
-  hideProgress();
-  setBtnsDisabled(false);
-
-  const label = type === 'copy' ? '複製' : '移動';
-  if (failed === 0) showToast(`✓ 成功${label} ${done} 部影片`, 'success');
-  else showToast(`${label}完成：${done} 成功，${failed} 失敗`, done ? '' : 'error');
-
-  // Refresh
-  if (type === 'move') {
-    clearSelection();
-    await loadSourceVideos();
-  }
-  await loadDestVideos();
-  if (type !== 'move') clearSelection();
+  hideProg(); disAll(false);
+  fail === 0 ? toast(`✓ 成功${type==='copy'?'複製':'移動'} ${ok} 部影片`, 'ok')
+             : toast(`完成：${ok} 成功，${fail} 失敗`, ok?'':'err');
+  if (type === 'move') { clearSel(); await loadSrc(srcId); }
+  else clearSel();
+  await loadDst(dstId);
   await loadPlaylists();
 }
 
-// ─── UI Helpers ──────────────────────────────────────
-function setSourceContent(html) { document.getElementById('source-content').innerHTML = html; }
-function setDestContent(html) { document.getElementById('dest-content').innerHTML = html; }
-function showToolbar() { document.getElementById('source-toolbar').style.display = 'flex'; }
-function hideToolbar() { document.getElementById('source-toolbar').style.display = 'none'; }
-function setBtnsDisabled(v) {
-  document.getElementById('btn-copy').disabled = v;
-  document.getElementById('btn-move').disabled = v;
+// ── Delete ───────────────────────────────────────────
+function askDel() {
+  const sel = srcVids.filter(v => v.sel && !v.na);
+  if (!sel.length) return;
+  document.getElementById('modal-msg').textContent = `確定要將 ${sel.length} 部影片從此播放清單移除？此操作不可復原。`;
+  document.getElementById('modal-ok').onclick = () => { closeModal(); doDel(); };
+  document.getElementById('modal').classList.add('on');
 }
-function showProgress(pct, label) {
-  document.getElementById('progress-wrap').classList.add('visible');
-  document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-label').textContent = label;
+function closeModal() { document.getElementById('modal').classList.remove('on'); }
+async function doDel() {
+  const sel = srcVids.filter(v => v.sel && !v.na);
+  disAll(true);
+  showProg(0, `正在刪除 0/${sel.length}`);
+  let ok = 0, fail = 0;
+  for (const v of sel) {
+    try {
+      const r = await api(`https://www.googleapis.com/youtube/v3/playlistItems?id=${v.id}`, { method: 'DELETE' });
+      (r.status === 204 || r.status === 200) ? ok++ : fail++;
+    } catch(e) { fail++; }
+    showProg(Math.round((ok+fail)/sel.length*100), `刪除 ${ok+fail}/${sel.length}`);
+  }
+  hideProg(); disAll(false);
+  fail === 0 ? toast(`✓ 已移除 ${ok} 部影片`, 'ok') : toast(`刪除完成：${ok} 成功，${fail} 失敗`, ok?'':'err');
+  await loadSrc(srcId);
+  await loadPlaylists();
 }
-function hideProgress() { document.getElementById('progress-wrap').classList.remove('visible'); }
 
-function emptyState(msg) {
-  return `<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><p>${escHtml(msg)}</p></div>`;
+// ── UI helpers ───────────────────────────────────────
+function setSrc(h) { document.getElementById('src-body').innerHTML = h; }
+function setDst(h) { document.getElementById('dst-body').innerHTML = h; }
+function showBar()  { document.getElementById('src-bar').style.display = 'flex'; }
+function hideBar()  { document.getElementById('src-bar').style.display = 'none'; }
+function disAll(v)  { ['btn-cp','btn-mv','btn-dl'].forEach(id => document.getElementById(id).disabled = v); }
+function showProg(pct, lbl) {
+  document.getElementById('prog').classList.add('on');
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-lbl').textContent = lbl;
 }
-
-let _toastTimer;
-function showToast(msg, type = '') {
+function hideProg() { document.getElementById('prog').classList.remove('on'); }
+function emptyEl(msg) {
+  return `<div class="empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><p>${esc(msg)}</p></div>`;
+}
+function loadEl() {
+  return '<div class="loading"><div class="spin"></div></div>';
+}
+let _tt;
+function toast(msg, type='') {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'show' + (type ? ' ' + type : '');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+  el.textContent = msg; el.className = 'on' + (type ? ' ' + type : '');
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('on'), 3200);
 }
-
-function escHtml(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
