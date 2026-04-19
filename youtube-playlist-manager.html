@@ -774,6 +774,17 @@ async function loadPlaylists() {
 }
 
 // ── Source Videos ────────────────────────────────────
+function mapVid(i) {
+  return {
+    id: i.id,
+    vid: i.snippet.resourceId.videoId,
+    title: i.snippet.title || '（無法取得標題）',
+    ch: i.snippet.videoOwnerChannelTitle || '',
+    thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
+    sel: false,
+    na: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
+  };
+}
 async function loadSrc(pid) {
   setSrc(loadEl()); hideBar();
   try {
