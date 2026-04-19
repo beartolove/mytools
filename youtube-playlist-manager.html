@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器 (v0.18)</title>
+<title>YouTube 播放清單管理器 (v0.19)</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
@@ -327,22 +327,6 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 }
 .btn-ok-del:hover { background:var(--danger-bgh); }
 
-/* ─ WL API notice ─────────────────────────────── */
-.wl-notice {
-  flex:1; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:10px; padding:1.5rem; text-align:center;
-}
-.wl-notice-icon { font-size:2em; }
-.wl-notice-title { font-size:0.95em; font-weight:700; color:var(--text); }
-.wl-notice-msg { font-size:0.82em; color:var(--text-muted); line-height:1.65; max-width:260px; }
-.wl-open-link {
-  display:inline-flex; align-items:center; gap:5px;
-  background:var(--accent); color:white; text-decoration:none;
-  padding:8px 16px; border-radius:var(--r); font-size:0.85em; font-weight:700;
-  transition:background 0.15s;
-}
-.wl-open-link:hover { background:var(--accent-dk); }
-
 /* ─ Clean playlists modal ─────────────────────── */
 #clean-modal {
   position:fixed; inset:0; background:rgba(0,0,0,0.45);
@@ -405,7 +389,7 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
   <div class="setup-box">
     <div class="setup-logo">
       <svg width="30" height="21" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="5" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-      <span>播放清單管理器 (v0.18)</span>
+      <span>播放清單管理器 (v0.19)</span>
     </div>
     <h2>Google OAuth 設定</h2>
     <p>需要 Google OAuth Client ID 才能存取 YouTube 資料。已預填預設值，可直接繼續或換成你自己的。</p>
@@ -432,7 +416,7 @@ header .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
 <header>
   <div class="header-logo">
     <svg width="24" height="17" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="4" fill="#CC0000"/><path d="M13 7l9 4.5-9 4.5V7z" fill="white"/></svg>
-    <span>播放清單管理器 (v0.18)</span>
+    <span>播放清單管理器 (v0.19)</span>
   </div>
   <div class="header-spacer"></div>
   <div class="font-ctrl" title="調整字體大小">
@@ -845,11 +829,9 @@ async function loadDst(pid) {
   try {
     const items = await apiAll(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${pid}&maxResults=50`);
     dstVids = items.map(i => ({ title: i.snippet.title, thumb: (i.snippet.thumbnails?.default)?.url || '' }));
-    if (pid === WL) document.getElementById('dst-wl-sub').textContent = items.length + ' 部影片';
     renderDst();
   } catch(e) {
-    setDst(emptyEl(e.message?.includes('403') ? '稍後觀看已設為目的地（無法預覽）' : '載入失敗'));
-    if (pid === WL) document.getElementById('dst-wl-sub').textContent = '已選取';
+    setDst(emptyEl('載入失敗'));
   }
 }
 function renderDst() {
