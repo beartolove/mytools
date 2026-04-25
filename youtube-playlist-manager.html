@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <!--
   YouTube 播放清單管理器
-  Version : v0.20
+  Version : v0.22
   Date    : 2026-04-25
   Changes :
-    v0.20 - 新增「匯出播放清單為 .txt」功能
-              ‧ 來源面板工具列加入「匯出 .txt」按鈕
-              ‧ 目的地面板標頭加入「匯出 .txt」按鈕（載入後啟用）
-              ‧ 匯出格式含清單名稱、匯出時間、影片數量、編號、標題、URL
-              ‧ 下載檔名格式：清單名稱_YYYYMMDD.txt
-    v0.19 - （前版）PlaylistManager 批次複製 / 移動功能
+    v0.22 - 播放清單下拉選單加入排序功能
+              ‧ 來源、目的地面板各自獨立排序
+              ‧ 可依清單名稱 A→Z / Z→A
+              ‧ 可依影片數量 多→少 / 少→多
+              ‧ 可依建立日期 最新 / 最舊
+              ‧ 切換排序後暫時保留已選取的播放清單
+    v0.21 - 來源內影片排序（依影片標題 A-Z / 依新增日期）
+    v0.20 - 匯出播放清單為 .txt
+    v0.19 - PlaylistManager 批次複製 / 移動功能
 -->
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器 v0.20</title>
+<title>YouTube 播放清單管理器 v0.22</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
@@ -156,6 +159,20 @@ header {
   letter-spacing: 0.02em;
   align-self: center;
 }
+
+/* ── Sort Select ── */
+.sort-select {
+  font-size: 11px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text-muted); padding: 3px 22px 3px 7px;
+  outline: none; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23606060' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 5px center;
+  transition: border-color 0.15s;
+}
+.sort-select:hover { border-color: #555; color: var(--text); }
+.sort-select:focus { border-color: var(--accent); }
+.sort-select option { background: #222; }
 .header-spacer { flex: 1; }
 .user-info {
   display: flex; align-items: center; gap: 8px;
@@ -420,7 +437,7 @@ main {
       <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
     </svg>
     <span>播放清單管理器</span>
-    <span class="header-version">v0.20</span>
+    <span class="header-version">v0.22</span>
   </div>
   <div class="header-spacer"></div>
   <div class="user-info" id="user-info" style="display:none">
@@ -453,7 +470,17 @@ main {
   <!-- Source Panel -->
   <div class="panel" id="source-panel">
     <div class="panel-header">
-      <label>來源播放清單</label>
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+        <label style="margin-bottom:0; flex:1">來源播放清單</label>
+        <select class="sort-select" id="source-pl-sort" onchange="populateSelect('source')" title="播放清單排序">
+          <option value="name-asc">🔤 名稱 A→Z</option>
+          <option value="name-desc">🔤 名稱 Z→A</option>
+          <option value="count-desc">🎥 影片數 多→少</option>
+          <option value="count-asc">🎥 影片數 少→多</option>
+          <option value="date-desc">🕓 日期 最新</option>
+          <option value="date-asc">🕓 日期 最舊</option>
+        </select>
+      </div>
       <select class="playlist-select" id="source-select" onchange="loadSourceVideos()">
         <option value="">— 選擇播放清單 —</option>
       </select>
@@ -463,6 +490,12 @@ main {
       <button class="select-all-btn" onclick="clearSelection()">清除</button>
       <span class="count-badge" id="total-count"></span>
       <span class="selected-count" id="selected-count">0 部</span>
+      <select class="sort-select" id="sort-select" onchange="applySortSourceVideos()" title="排序方式">
+        <option value="date-desc">🕓 新增日期 ↓</option>
+        <option value="date-asc">🕓 新增日期 ↑</option>
+        <option value="title-asc">🔤 標題 A→Z</option>
+        <option value="title-desc">🔤 標題 Z→A</option>
+      </select>
       <button class="btn-export" id="btn-export-source" onclick="exportPlaylist('source')" title="匯出影片清單為 .txt">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         匯出 .txt
@@ -497,9 +530,17 @@ main {
   <!-- Destination Panel -->
   <div class="panel">
     <div class="panel-header">
-      <div style="display:flex; align-items:center; margin-bottom:8px;">
-        <label style="margin-bottom:0">目的地播放清單</label>
-        <button class="btn-export" id="btn-export-dest" onclick="exportPlaylist('dest')" disabled style="margin-left:auto" title="匯出影片清單為 .txt">
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+        <label style="margin-bottom:0; flex:1">目的地播放清單</label>
+        <select class="sort-select" id="dest-pl-sort" onchange="populateSelect('dest')" title="播放清單排序">
+          <option value="name-asc">🔤 名稱 A→Z</option>
+          <option value="name-desc">🔤 名稱 Z→A</option>
+          <option value="count-desc">🎥 影片數 多→少</option>
+          <option value="count-asc">🎥 影片數 少→多</option>
+          <option value="date-desc">🕓 日期 最新</option>
+          <option value="date-asc">🕓 日期 最舊</option>
+        </select>
+        <button class="btn-export" id="btn-export-dest" onclick="exportPlaylist('dest')" disabled title="匯出影片清單為 .txt">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           匯出 .txt
         </button>
@@ -669,7 +710,8 @@ async function loadPlaylists() {
     allPlaylists = items.map(i => ({
       id: i.id,
       title: i.snippet.title,
-      count: i.contentDetails.itemCount
+      count: i.contentDetails.itemCount,
+      publishedAt: i.snippet.publishedAt || ''
     }));
     populateSelects();
     setSourceContent(emptyState('選擇來源播放清單'));
@@ -684,12 +726,36 @@ async function loadPlaylists() {
 }
 
 function populateSelects() {
-  const opts = allPlaylists.map(p =>
+  populateSelect('source');
+  populateSelect('dest');
+}
+
+function populateSelect(side) {
+  const sortEl = document.getElementById(side === 'source' ? 'source-pl-sort' : 'dest-pl-sort');
+  const mode = sortEl ? sortEl.value : 'name-asc';
+  const selectId = side === 'source' ? 'source-select' : 'dest-select';
+  const currentVal = document.getElementById(selectId).value; // preserve current selection
+
+  const sorted = [...allPlaylists];
+  sorted.sort((a, b) => {
+    switch (mode) {
+      case 'name-asc':   return (a.title || '').localeCompare(b.title || '', 'zh-TW');
+      case 'name-desc':  return (b.title || '').localeCompare(a.title || '', 'zh-TW');
+      case 'count-desc': return b.count - a.count;
+      case 'count-asc':  return a.count - b.count;
+      case 'date-desc':  return (b.publishedAt || '').localeCompare(a.publishedAt || '');
+      case 'date-asc':   return (a.publishedAt || '').localeCompare(b.publishedAt || '');
+      default: return 0;
+    }
+  });
+
+  const opts = sorted.map(p =>
     `<option value="${p.id}">${escHtml(p.title)} (${p.count})</option>`
   ).join('');
   const placeholder = '<option value="">— 選擇播放清單 —</option>';
-  document.getElementById('source-select').innerHTML = placeholder + opts;
-  document.getElementById('dest-select').innerHTML = placeholder + opts;
+  document.getElementById(selectId).innerHTML = placeholder + opts;
+  // Restore previously selected playlist after re-sort
+  if (currentVal) document.getElementById(selectId).value = currentVal;
 }
 
 // ─── Source Videos ───────────────────────────────────
@@ -708,15 +774,38 @@ async function loadSourceVideos() {
       title: i.snippet.title || '（無法取得標題）',
       channel: i.snippet.videoOwnerChannelTitle || '',
       thumb: (i.snippet.thumbnails?.medium || i.snippet.thumbnails?.default)?.url || '',
+      publishedAt: i.snippet.publishedAt || '',   // 加入播放清單的時間
       selected: false,
       unavailable: i.snippet.title === 'Private video' || i.snippet.title === 'Deleted video'
     }));
     renderSourceVideos();
     showToolbar();
     updateCounts();
+    // Reset sort to default when loading new playlist
+    document.getElementById('sort-select').value = 'date-desc';
+    applySortSourceVideos();
   } catch(e) {
     setSourceContent(emptyState('載入失敗：' + e.message));
   }
+}
+
+// ─── Sort Source Videos ─────────────────────────────────
+function applySortSourceVideos() {
+  const mode = document.getElementById('sort-select').value;
+  const sorted = [...sourceVideos]; // shallow copy, preserve original array
+  sorted.sort((a, b) => {
+    switch (mode) {
+      case 'date-desc': return (b.publishedAt || '').localeCompare(a.publishedAt || '');
+      case 'date-asc':  return (a.publishedAt || '').localeCompare(b.publishedAt || '');
+      case 'title-asc': return (a.title || '').localeCompare(b.title || '', 'zh-TW');
+      case 'title-desc':return (b.title || '').localeCompare(a.title || '', 'zh-TW');
+      default: return 0;
+    }
+  });
+  // Re-index so toggleVideo(i) maps correctly after sort
+  sourceVideos = sorted;
+  renderSourceVideos();
+  updateCounts();
 }
 
 function renderSourceVideos() {
