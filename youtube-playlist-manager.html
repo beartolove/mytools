@@ -146,6 +146,16 @@ header {
 }
 .header-logo { display: flex; align-items: center; gap: 8px; }
 .header-logo span { font-weight: 600; font-size: 16px; }
+.header-version {
+  font-size: 11px; font-weight: 400;
+  color: var(--text-dim);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 0.02em;
+  align-self: center;
+}
 .header-spacer { flex: 1; }
 .user-info {
   display: flex; align-items: center; gap: 8px;
@@ -410,6 +420,7 @@ main {
       <path d="M13 7l9 4.5-9 4.5V7z" fill="white"/>
     </svg>
     <span>播放清單管理器</span>
+    <span class="header-version">v0.20</span>
   </div>
   <div class="header-spacer"></div>
   <div class="user-info" id="user-info" style="display:none">
