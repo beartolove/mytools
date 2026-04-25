@@ -1,9 +1,21 @@
 <!DOCTYPE html>
+<!--
+  YouTube 播放清單管理器
+  Version : v0.20
+  Date    : 2026-04-25
+  Changes :
+    v0.20 - 新增「匯出播放清單為 .txt」功能
+              ‧ 來源面板工具列加入「匯出 .txt」按鈕
+              ‧ 目的地面板標頭加入「匯出 .txt」按鈕（載入後啟用）
+              ‧ 匯出格式含清單名稱、匯出時間、影片數量、編號、標題、URL
+              ‧ 下載檔名格式：清單名稱_YYYYMMDD.txt
+    v0.19 - （前版）PlaylistManager 批次複製 / 移動功能
+-->
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 播放清單管理器</title>
+<title>YouTube 播放清單管理器 v0.20</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
